@@ -1,0 +1,19 @@
+[
+    {
+        "arguments": [
+            "gcc",
+            "-c",
+            "-std=c11",
+            "-ggdb",
+            "-Wall",
+            "-O0",
+            "-I",
+            ".",
+            "-o",
+            "concurrent_queue_test",
+            "tests/concurrent_queue_test.c"
+        ],
+        "directory": "/home/ishan/code/llcm",
+        "file": "tests/concurrent_queue_test.c"
+    }
+]
