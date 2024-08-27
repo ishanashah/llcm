@@ -113,6 +113,7 @@ void llcm_concurrent_queue_push(struct llcm_concurrent_queue *queue,
     while (!__atomic_compare_exchange_n(&read_entry->entry, &expected_value,
                                         value, false, __ATOMIC_SEQ_CST,
                                         __ATOMIC_SEQ_CST)) {
+        expected_value = NULL;
     }
 }
 
