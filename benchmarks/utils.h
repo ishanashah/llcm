@@ -18,6 +18,7 @@ uint64_t diff_timespec(const struct timespec *, const struct timespec *);
 /* private */
 
 void set_affinity_(int cpu) {
+    cpu *= 2;
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(cpu, &cpuset);
