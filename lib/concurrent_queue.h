@@ -102,10 +102,8 @@ void llcm_concurrent_queue_push(struct llcm_concurrent_queue *queue, void *value
         __atomic_fetch_add(&queue->write_counter, 1, __ATOMIC_SEQ_CST);
     struct llcm_concurrent_queue_entry *read_entry =
         &queue->array[reserved_write_counter & queue->mask];
-    void *expected_value = NULL;
-    while (!__atomic_compare_exchange_n(&read_entry->entry, &expected_value, value, false,
-                                        __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
-        expected_value = NULL;
+    while (NULL != value) {
+        value = __atomic_exchange_n(&read_entry->entry, value, __ATOMIC_SEQ_CST);
     }
 }
 
