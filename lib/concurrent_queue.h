@@ -48,7 +48,8 @@ void *llcm_concurrent_queue_try_pop(struct llcm_concurrent_queue *);
 /* private */
 
 struct llcm_concurrent_queue_entry {
-    alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) void *entry;
+    alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) volatile uint64_t aba_counter;
+    void *element;
 };
 static_assert(sizeof(struct llcm_concurrent_queue_entry) == LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE,
               "");
@@ -67,10 +68,16 @@ void llcm_concurrent_queue_init_with_custom_allocate(struct llcm_concurrent_queu
                                                      struct llcm_allocator allocator) {
     memset(queue, 0, sizeof(*queue));
     capacity = llcm_round_up_pow2(capacity);
+    if (capacity < 2) {
+        capacity = 2;   // capacity must be at least 2 for aba_counter
+    }
     size_t const array_size_bytes = sizeof(struct llcm_concurrent_queue_entry) * capacity;
     queue->array = (struct llcm_concurrent_queue_entry *) allocator.allocate(
         sizeof(struct llcm_concurrent_queue_entry), array_size_bytes);
     memset(queue->array, 0, array_size_bytes);
+    for (uint64_t i = 0; i < capacity; i++) {
+        queue->array[i].aba_counter = i;
+    }
     queue->mask = capacity - 1;
     queue->free = allocator.free;
 }
@@ -98,24 +105,28 @@ void llcm_concurrent_queue_unreserve_size_after_pop(struct llcm_concurrent_queue
 void llcm_concurrent_queue_push(struct llcm_concurrent_queue *queue, void *value) {
     uint64_t const reserved_write_counter =
         __atomic_fetch_add(&queue->write_counter, 1, __ATOMIC_SEQ_CST);
-    void **write_value_ptr = &queue->array[reserved_write_counter & queue->mask].entry;
-    while (NULL != value) {
-        value = __atomic_exchange_n(write_value_ptr, value, __ATOMIC_SEQ_CST);
+    struct llcm_concurrent_queue_entry *entry = &queue->array[reserved_write_counter & queue->mask];
+    while (entry->aba_counter != reserved_write_counter) {
     }
+    entry->element = value;
+    __asm__ __volatile__("" ::: "memory");
+    entry->aba_counter = reserved_write_counter + 1;
 }
 
 void *llcm_concurrent_queue_try_pop(struct llcm_concurrent_queue *queue) {
-    uint64_t const local_write_counter = __atomic_load_n(&queue->write_counter, __ATOMIC_SEQ_CST);
+    uint64_t const local_write_counter = queue->write_counter;
     uint64_t *read_ptr = &queue->read_counter;
-    uint64_t local_read_counter = __atomic_load_n(read_ptr, __ATOMIC_SEQ_CST);
+    uint64_t local_read_counter = *read_ptr;
     while (local_read_counter < local_write_counter) {
         if (__atomic_compare_exchange_n(read_ptr, &local_read_counter, local_read_counter + 1,
                                         false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
-            void **read_value_ptr = &queue->array[local_read_counter & queue->mask].entry;
-            void *read_value = NULL;
-            while (NULL == read_value) {
-                read_value = __atomic_exchange_n(read_value_ptr, NULL, __ATOMIC_SEQ_CST);
+            struct llcm_concurrent_queue_entry *entry =
+                &queue->array[local_read_counter & queue->mask];
+            while (entry->aba_counter != local_read_counter + 1) {
             }
+            void *read_value = entry->element;
+            __asm__ __volatile__("" ::: "memory");
+            entry->aba_counter = local_read_counter + queue->mask + 1;
             return read_value;
         }
     }
