@@ -3,6 +3,7 @@
         "arguments": [
             "gcc",
             "-c",
+            "-pthread",
             "-std=c11",
             "-ggdb",
             "-Wall",

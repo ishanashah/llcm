@@ -5,7 +5,7 @@ all: concurrent_queue_test
 
 tests: concurrent_queue_test
 
-concurrent_queue_test tests/concurrent_queue_test.c lib/concurrent_queue.h:
+concurrent_queue_test tests/concurrent_queue_test.c:
 	$(CXX) $(CTESTFLAGS) -o $@ tests/concurrent_queue_test.c
 
 clean:
