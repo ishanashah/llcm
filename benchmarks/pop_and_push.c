@@ -1,8 +1,45 @@
+#define _GNU_SOURCE
+
 #include "lib/concurrent_queue.h"
 
 #include <pthread.h>
 #include <stdio.h>
 #include <time.h>
+
+void set_affinity(int cpu) {
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(cpu, &cpuset);
+
+    pthread_t current_thread = pthread_self();
+    int ret = pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+    if (ret != 0) {
+        perror("pthread_setaffinity_np");
+        exit(1);
+    }
+}
+
+void set_realtime_priority() {
+    struct sched_param param;
+    param.sched_priority = sched_get_priority_max(SCHED_FIFO);
+
+    int ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    if (ret != 0) {
+        perror("pthread_setschedparam");
+        exit(1);
+    }
+}
+
+void unset_realtime_priority() {
+    struct sched_param param;
+    param.sched_priority = sched_get_priority_min(SCHED_OTHER);
+
+    int ret = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+    if (ret != 0) {
+        perror("pthread_setschedparam");
+        exit(1);
+    }
+}
 
 #define MAX_SEQUENCE  1000000UL
 #define NUM_TESTS     5
@@ -30,7 +67,9 @@ void *thread_exec(void *arg0) {
     struct thread_args *thread_args = arg0;
     struct llcm_concurrent_queue *queue = thread_args->queue;
     uint64_t *push_counter = thread_args->push_counter;
-    __atomic_fetch_add(thread_args->start_barrier, 1, __ATOMIC_SEQ_CST);
+    uint64_t tid = __atomic_fetch_add(thread_args->start_barrier, 1, __ATOMIC_SEQ_CST);
+    set_affinity(tid + 1);
+    set_realtime_priority();
     while (__atomic_load_n(thread_args->start_barrier, __ATOMIC_SEQ_CST) !=
            thread_args->config->num_threads + 1) {
     }
@@ -43,6 +82,7 @@ void *thread_exec(void *arg0) {
         }
         llcm_concurrent_queue_push(queue, pop_result);
     }
+    unset_realtime_priority();
     return NULL;
 }
 
@@ -67,7 +107,9 @@ uint64_t multithreaded_test(struct test_config config) {
             exit(1);
         }
     }
-    __atomic_fetch_add(&start_barrier, 1, __ATOMIC_SEQ_CST);
+    uint64_t tid = __atomic_fetch_add(&start_barrier, 1, __ATOMIC_SEQ_CST);
+    set_affinity(tid + 1);
+    set_realtime_priority();
     while (__atomic_load_n(&start_barrier, __ATOMIC_SEQ_CST) != config.num_threads + 1) {
     }
 
@@ -76,6 +118,7 @@ uint64_t multithreaded_test(struct test_config config) {
     }
     uint64_t const end_time = rdtsc();
 
+    unset_realtime_priority();
     for (size_t tid = 0; tid < config.num_threads; tid++) {
         pthread_join(threads[tid], NULL);
     }
