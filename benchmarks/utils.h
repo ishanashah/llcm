@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -10,6 +11,8 @@
 
 void thread_perf_mode_init(int cpu);
 void thread_perf_mode_uninit();
+
+uint64_t rdtsc(void);
 
 /* private */
 
@@ -55,3 +58,9 @@ void thread_perf_mode_init(int cpu) {
 }
 
 void thread_perf_mode_uninit() { unset_realtime_priority_(); }
+
+uint64_t rdtsc(void) {
+    unsigned int lo, hi;
+    __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+    return ((uint64_t) hi << 32) | lo;
+}

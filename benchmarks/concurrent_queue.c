@@ -1,5 +1,7 @@
-#include "benchmarks/utils/threads.h"
+#define _GNU_SOURCE
+
 #include "lib/concurrent_queue.h"
+#include "benchmarks/utils.h"
 
 #include <pthread.h>
 #include <stdio.h>
@@ -8,12 +10,6 @@
 #define MAX_SEQUENCE  1000000UL
 #define NUM_TESTS     5
 #define DUMMY_ELEMENT ((void *) 1)
-
-static inline uint64_t rdtsc(void) {
-    unsigned int lo, hi;
-    __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
-    return ((uint64_t) hi << 32) | lo;
-}
 
 struct test_config {
     size_t num_elements;
@@ -80,13 +76,13 @@ uint64_t multithreaded_test(struct test_config config) {
     }
     uint64_t const end_time = rdtsc();
 
-    thread_perf_mode_uninit();
     for (size_t tid = 0; tid < config.num_threads; tid++) {
         pthread_join(threads[tid], NULL);
     }
 
     llcm_concurrent_queue_unreserve_size_after_pop(&queue, config.num_elements);
     llcm_concurrent_queue_uninit(&queue);
+    thread_perf_mode_uninit();
     return end_time - start_time;
 }
 

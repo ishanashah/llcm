@@ -6,13 +6,13 @@ all: tests benchmarks
 
 tests: concurrent_queue_test
 
-benchmarks: pop_and_push_benchmark
+benchmarks: concurrent_queue_benchmark
 
 concurrent_queue_test tests/concurrent_queue_test.c:
 	$(CXX) $(CTESTFLAGS) -o $@ tests/concurrent_queue_test.c
 
-pop_and_push_benchmark benchmarks/pop_and_push.c:
-	$(CXX) $(CPERFFLAGS) -o $@ benchmarks/pop_and_push.c
+concurrent_queue_benchmark benchmarks/concurrent_queue.c:
+	$(CXX) $(CPERFFLAGS) -o $@ benchmarks/concurrent_queue.c
 
 clean:
-	rm -rf concurrent_queue_test pop_and_push_benchmark
+	rm -rf concurrent_queue_test concurrent_queue_benchmark
