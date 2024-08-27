@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include <time.h>
 
-#define MAX_SEQUENCE  1000000UL
-#define NUM_TESTS     5
+#define MAX_SEQUENCE  100000UL
+#define NUM_TESTS     10
 #define DUMMY_ELEMENT ((void *) 1)
 
 struct test_config {
@@ -24,6 +24,7 @@ struct thread_args {
 };
 
 void *thread_exec(void *arg0) {
+    // init
     struct thread_args *thread_args = arg0;
     struct llcm_concurrent_queue *queue = thread_args->queue;
     uint64_t *start_barrier = thread_args->start_barrier;
@@ -34,6 +35,7 @@ void *thread_exec(void *arg0) {
            thread_args->config->num_threads + 1) {
     }
 
+    // benchmark
     while (__atomic_load_n(end_barrier, __ATOMIC_SEQ_CST) == 0) {
         void *pop_result = NULL;
         while (NULL == pop_result) {
@@ -51,6 +53,7 @@ struct test_result {
 };
 
 struct test_result multithreaded_test(struct test_config config) {
+    // init
     struct llcm_concurrent_queue queue;
     alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t start_barrier = 0;
     alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t end_barrier = 0;
@@ -60,6 +63,7 @@ struct test_result multithreaded_test(struct test_config config) {
         llcm_concurrent_queue_push(&queue, DUMMY_ELEMENT);
     }
 
+    // spin up threads
     struct thread_args thread_args = {
         .queue = &queue,
         .config = &config,
@@ -78,6 +82,7 @@ struct test_result multithreaded_test(struct test_config config) {
     while (__atomic_load_n(&start_barrier, __ATOMIC_SEQ_CST) != config.num_threads + 1) {
     }
 
+    // benchmark
     __asm__ __volatile__("" ::: "memory");
     uint64_t const clock_start = clock();
     uint64_t const cycle_start = rdtsc();
@@ -88,12 +93,12 @@ struct test_result multithreaded_test(struct test_config config) {
     uint64_t const cycle_end = rdtsc();
     uint64_t const clock_end = clock();
     __asm__ __volatile__("" ::: "memory");
-    __atomic_store_n(&end_barrier, 1, __ATOMIC_SEQ_CST);
 
+    // teardown
+    __atomic_store_n(&end_barrier, 1, __ATOMIC_SEQ_CST);
     for (size_t tid = 0; tid < config.num_threads; tid++) {
         pthread_join(threads[tid], NULL);
     }
-
     llcm_concurrent_queue_unreserve_size_after_pop(&queue, config.num_elements);
     llcm_concurrent_queue_uninit(&queue);
     thread_perf_mode_uninit();
