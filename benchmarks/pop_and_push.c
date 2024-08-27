@@ -30,7 +30,9 @@ void *thread_exec(void *arg0) {
     struct thread_args *thread_args = arg0;
     struct llcm_concurrent_queue *queue = thread_args->queue;
     uint64_t *push_counter = thread_args->push_counter;
-    while (__atomic_load_n(thread_args->start_barrier, __ATOMIC_SEQ_CST) == 0) {
+    __atomic_fetch_add(thread_args->start_barrier, 1, __ATOMIC_SEQ_CST);
+    while (__atomic_load_n(thread_args->start_barrier, __ATOMIC_SEQ_CST) !=
+           thread_args->config->num_threads + 1) {
     }
 
     for (; __atomic_load_n(push_counter, __ATOMIC_SEQ_CST) < MAX_SEQUENCE;
@@ -65,9 +67,11 @@ uint64_t multithreaded_test(struct test_config config) {
             exit(1);
         }
     }
+    __atomic_fetch_add(&start_barrier, 1, __ATOMIC_SEQ_CST);
+    while (__atomic_load_n(&start_barrier, __ATOMIC_SEQ_CST) != config.num_threads + 1) {
+    }
 
     uint64_t const start_time = rdtsc();
-    __atomic_store_n(&start_barrier, 1, __ATOMIC_SEQ_CST);
     while (__atomic_load_n(&push_counter, __ATOMIC_SEQ_CST) < MAX_SEQUENCE) {
     }
     uint64_t const end_time = rdtsc();

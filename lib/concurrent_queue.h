@@ -21,10 +21,9 @@ struct llcm_concurrent_queue {
     size_t mask;
     void (*free)(void *);
 
-    alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) int64_t available_pop_size;
-    alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t reserved_push_size;
     alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t read_counter;
     alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t write_counter;
+    alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t reserved_push_size;
 };
 
 void llcm_concurrent_queue_init(struct llcm_concurrent_queue *, size_t capacity);
@@ -97,32 +96,28 @@ void llcm_concurrent_queue_unreserve_size_after_pop(struct llcm_concurrent_queue
 }
 
 void llcm_concurrent_queue_push(struct llcm_concurrent_queue *queue, void *value) {
-    __atomic_fetch_add(&queue->available_pop_size, 1, __ATOMIC_SEQ_CST);
-
     uint64_t const reserved_write_counter =
         __atomic_fetch_add(&queue->write_counter, 1, __ATOMIC_SEQ_CST);
-    struct llcm_concurrent_queue_entry *read_entry =
-        &queue->array[reserved_write_counter & queue->mask];
+    void **write_value_ptr = &queue->array[reserved_write_counter & queue->mask].entry;
     while (NULL != value) {
-        value = __atomic_exchange_n(&read_entry->entry, value, __ATOMIC_SEQ_CST);
+        value = __atomic_exchange_n(write_value_ptr, value, __ATOMIC_SEQ_CST);
     }
 }
 
 void *llcm_concurrent_queue_try_pop(struct llcm_concurrent_queue *queue) {
-    int64_t const available_pop_size =
-        __atomic_fetch_sub(&queue->available_pop_size, 1, __ATOMIC_SEQ_CST);
-    if (available_pop_size <= 0) {
-        __atomic_fetch_add(&queue->available_pop_size, 1, __ATOMIC_SEQ_CST);
-        return NULL;
+    uint64_t const local_write_counter = __atomic_load_n(&queue->write_counter, __ATOMIC_SEQ_CST);
+    uint64_t *read_ptr = &queue->read_counter;
+    uint64_t local_read_counter = __atomic_load_n(read_ptr, __ATOMIC_SEQ_CST);
+    while (local_read_counter < local_write_counter) {
+        if (__atomic_compare_exchange_n(read_ptr, &local_read_counter, local_read_counter + 1,
+                                        false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+            void **read_value_ptr = &queue->array[local_read_counter & queue->mask].entry;
+            void *read_value = NULL;
+            while (NULL == read_value) {
+                read_value = __atomic_exchange_n(read_value_ptr, NULL, __ATOMIC_SEQ_CST);
+            }
+            return read_value;
+        }
     }
-
-    uint64_t const reserved_read_counter =
-        __atomic_fetch_add(&queue->read_counter, 1, __ATOMIC_SEQ_CST);
-    struct llcm_concurrent_queue_entry *read_entry =
-        &queue->array[reserved_read_counter & queue->mask];
-    void *read_value = NULL;
-    while (NULL == read_value) {
-        read_value = __atomic_exchange_n(&read_entry->entry, NULL, __ATOMIC_SEQ_CST);
-    }
-    return read_value;
+    return NULL;
 }
