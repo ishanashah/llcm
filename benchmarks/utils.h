@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #define _GNU_SOURCE
 
 #include <pthread.h>
@@ -9,6 +10,7 @@
 
 /* public */
 
+void thread_perf_mode_main_thread_init();
 void thread_perf_mode_init(int cpu);
 void thread_perf_mode_uninit();
 
@@ -52,6 +54,8 @@ void unset_realtime_priority_() {
         exit(1);
     }
 }
+
+void thread_perf_mode_main_thread_init() { set_affinity_(1); }
 
 void thread_perf_mode_init(int cpu) {
     set_affinity_(cpu);

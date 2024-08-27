@@ -108,7 +108,6 @@ struct test_result multithreaded_test(struct test_config config) {
             exit(1);
         }
     }
-    thread_perf_mode_init(1);
     __atomic_fetch_add(&num_threads_ready, 1, __ATOMIC_SEQ_CST);
     while (__atomic_load_n(&num_threads_ready, __ATOMIC_SEQ_CST) != config.num_threads + 1) {
     }
@@ -120,7 +119,6 @@ struct test_result multithreaded_test(struct test_config config) {
     }
     llcm_concurrent_queue_unreserve_size_after_pop(&queue, config.num_elements);
     llcm_concurrent_queue_uninit(&queue);
-    thread_perf_mode_uninit();
 
     struct test_result result = {.cycles = 0, .nanos = 0};
     for (size_t tid = 0; tid < config.num_threads; tid++) {
@@ -149,17 +147,13 @@ void aggregate_test(struct test_config config) {
 }
 
 int main() {
+    thread_perf_mode_main_thread_init();
     printf("running with iterations(%lu)\n", MAX_SEQUENCE);
-    aggregate_test((struct test_config){.num_threads = 1, .num_elements = 1});
-    aggregate_test((struct test_config){.num_threads = 1, .num_elements = 2});
-    aggregate_test((struct test_config){.num_threads = 1, .num_elements = 4});
-    aggregate_test((struct test_config){.num_threads = 1, .num_elements = 8});
-    aggregate_test((struct test_config){.num_threads = 2, .num_elements = 2});
-    aggregate_test((struct test_config){.num_threads = 2, .num_elements = 4});
-    aggregate_test((struct test_config){.num_threads = 2, .num_elements = 8});
-    aggregate_test((struct test_config){.num_threads = 2, .num_elements = 16});
-    aggregate_test((struct test_config){.num_threads = 4, .num_elements = 4});
-    aggregate_test((struct test_config){.num_threads = 4, .num_elements = 8});
-    aggregate_test((struct test_config){.num_threads = 4, .num_elements = 16});
-    aggregate_test((struct test_config){.num_threads = 4, .num_elements = 32});
+    for (int num_threads = 1; num_threads <= 4; num_threads *= 2) {
+        for (size_t num_elements = num_threads; num_elements <= num_threads * 8;
+             num_elements *= 2) {
+            aggregate_test(
+                (struct test_config){.num_threads = num_threads, .num_elements = num_elements});
+        }
+    }
 }
