@@ -34,7 +34,7 @@ struct thread_args {
 void *thread_exec(void *arg0) {
     // init
     struct thread_args *thread_args = arg0;
-    thread_perf_mode_init(thread_args->tid + 2);
+    thread_perf_mode_init(thread_args->tid);
     struct llcm_concurrent_queue *queue = thread_args->queue;
     uint64_t const *start_barrier = thread_args->start_barrier;
     __atomic_fetch_add(thread_args->num_threads_ready, 1, __ATOMIC_SEQ_CST);

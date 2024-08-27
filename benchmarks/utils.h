@@ -19,7 +19,6 @@ uint64_t diff_timespec(const struct timespec *, const struct timespec *);
 /* private */
 
 void set_affinity_(int cpu) {
-    cpu *= 2;
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(cpu, &cpuset);
@@ -46,6 +45,7 @@ void set_realtime_priority_() {
 void thread_perf_mode_main_thread_init() { set_affinity_(1); }
 
 void thread_perf_mode_init(int cpu) {
+    cpu = (cpu + 1) * 2;   // main thread starts at 1, avoid hyperthreading
     set_affinity_(cpu);
     set_realtime_priority_();
 }
