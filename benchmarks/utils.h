@@ -12,7 +12,6 @@
 
 void thread_perf_mode_main_thread_init();
 void thread_perf_mode_init(int cpu);
-void thread_perf_mode_uninit();
 
 uint64_t rdtsc(void);
 uint64_t diff_timespec(const struct timespec *, const struct timespec *);
@@ -44,25 +43,12 @@ void set_realtime_priority_() {
     }
 }
 
-void unset_realtime_priority_() {
-    struct sched_param param;
-    param.sched_priority = sched_get_priority_min(SCHED_OTHER);
-
-    int ret = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
-    if (ret != 0) {
-        perror("pthread_setschedparam");
-        exit(1);
-    }
-}
-
 void thread_perf_mode_main_thread_init() { set_affinity_(1); }
 
 void thread_perf_mode_init(int cpu) {
     set_affinity_(cpu);
     set_realtime_priority_();
 }
-
-void thread_perf_mode_uninit() { unset_realtime_priority_(); }
 
 uint64_t rdtsc(void) {
     unsigned int lo, hi;

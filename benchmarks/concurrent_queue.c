@@ -76,7 +76,6 @@ void *thread_exec(void *arg0) {
 
     thread_args->result = (struct test_result){.cycles = cycle_end - cycle_start,
                                                .nanos = diff_timespec(&ts_end, &ts_start)};
-    thread_perf_mode_uninit();
     return NULL;
 }
 
