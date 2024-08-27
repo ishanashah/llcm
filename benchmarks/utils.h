@@ -17,7 +17,6 @@ uint64_t rdtsc(void);
 /* private */
 
 void set_affinity_(int cpu) {
-    cpu++;
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(cpu, &cpuset);

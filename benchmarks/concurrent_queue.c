@@ -20,17 +20,18 @@ struct thread_args {
     struct llcm_concurrent_queue *queue;
     struct test_config const *config;
     uint64_t *start_barrier;
-    uint64_t *end_barrier;
+    uint64_t const *end_barrier;
+    int tid;
 };
 
 void *thread_exec(void *arg0) {
     // init
     struct thread_args *thread_args = arg0;
+    thread_perf_mode_init(thread_args->tid + 2);
     struct llcm_concurrent_queue *queue = thread_args->queue;
     uint64_t *start_barrier = thread_args->start_barrier;
-    uint64_t *end_barrier = thread_args->end_barrier;
-    uint64_t tid = __atomic_fetch_add(start_barrier, 1, __ATOMIC_SEQ_CST);
-    thread_perf_mode_init(tid);
+    uint64_t const *end_barrier = thread_args->end_barrier;
+    __atomic_fetch_add(start_barrier, 1, __ATOMIC_SEQ_CST);
     while (__atomic_load_n(start_barrier, __ATOMIC_SEQ_CST) !=
            thread_args->config->num_threads + 1) {
     }
@@ -64,21 +65,23 @@ struct test_result multithreaded_test(struct test_config config) {
     }
 
     // spin up threads
-    struct thread_args thread_args = {
-        .queue = &queue,
-        .config = &config,
-        .start_barrier = &start_barrier,
-        .end_barrier = &end_barrier,
-    };
     pthread_t threads[config.num_threads];
+    struct thread_args thread_args[config.num_threads];
     for (size_t tid = 0; tid < config.num_threads; tid++) {
-        int rc = pthread_create(&threads[tid], NULL, thread_exec, &thread_args);
+        thread_args[tid] = (struct thread_args){
+            .queue = &queue,
+            .config = &config,
+            .start_barrier = &start_barrier,
+            .end_barrier = &end_barrier,
+            .tid = tid,
+        };
+        int rc = pthread_create(&threads[tid], NULL, thread_exec, &thread_args[tid]);
         if (rc != 0) {
             exit(1);
         }
     }
-    uint64_t tid = __atomic_fetch_add(&start_barrier, 1, __ATOMIC_SEQ_CST);
-    thread_perf_mode_init(tid);
+    thread_perf_mode_init(1);
+    __atomic_fetch_add(&start_barrier, 1, __ATOMIC_SEQ_CST);
     while (__atomic_load_n(&start_barrier, __ATOMIC_SEQ_CST) != config.num_threads + 1) {
     }
 
