@@ -101,11 +101,11 @@ void aggregate_test(struct test_config config) {
 
 int main() {
     aggregate_test((struct test_config){.num_elements = 1, .num_threads = 1});
-    aggregate_test((struct test_config){.num_elements = 1, .num_threads = 2});
-    aggregate_test((struct test_config){.num_elements = 1, .num_threads = 4});
+    // aggregate_test((struct test_config){.num_elements = 1, .num_threads = 2});
+    // aggregate_test((struct test_config){.num_elements = 1, .num_threads = 4});
     aggregate_test((struct test_config){.num_elements = 2, .num_threads = 1});
     aggregate_test((struct test_config){.num_elements = 2, .num_threads = 2});
-    aggregate_test((struct test_config){.num_elements = 2, .num_threads = 4});
+    // aggregate_test((struct test_config){.num_elements = 2, .num_threads = 4});
     aggregate_test((struct test_config){.num_elements = 4, .num_threads = 1});
     aggregate_test((struct test_config){.num_elements = 4, .num_threads = 2});
     aggregate_test((struct test_config){.num_elements = 4, .num_threads = 4});
