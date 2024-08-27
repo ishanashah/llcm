@@ -16,11 +16,11 @@ void llcm_scheduler_init_with_custom_allocate(struct llcm_scheduler *, size_t ca
 void llcm_scheduler_uninit(struct llcm_scheduler *);
 
 bool llcm_scheduler_try_schedule_routine(struct llcm_scheduler *, struct llcm_routine *);
-void *llcm_scheduler_poll(struct llcm_scheduler *, void *user_exec_arg);
+bool llcm_scheduler_poll(struct llcm_scheduler *, void *user_exec_arg);
 
 /* private */
 
-// should only be publicly called by llcm_exec_handle
+// should only be called by llcm_exec_handle
 bool llcm_scheduler_try_reserve_new_routine_(struct llcm_scheduler *);
 void llcm_scheduler_old_routine_available_(struct llcm_scheduler *);
 
@@ -46,22 +46,21 @@ bool llcm_scheduler_try_schedule_routine(struct llcm_scheduler *scheduler,
     return true;
 }
 
-void *llcm_scheduler_poll(struct llcm_scheduler *scheduler, void *user_exec_arg) {
+bool llcm_scheduler_poll(struct llcm_scheduler *scheduler, void *user_exec_arg) {
     struct llcm_routine *routine = llcm_concurrent_queue_try_pop(&scheduler->queue);
     if (NULL == routine) {
-        return NULL;
+        return false;
     }
 
     struct llcm_exec_handle exec_handle = {
         .routine = routine, .scheduler = scheduler, .user_exec_arg = user_exec_arg};
-    void *user_ret_val = routine->poll(routine->arg0, &exec_handle);
+    routine->poll(routine->arg0, &exec_handle);
     if (NULL != exec_handle.scheduler) {
         llcm_concurrent_queue_push(&exec_handle.scheduler->queue, exec_handle.routine);
     }
-    return user_ret_val;
+    return true;
 }
 
-// should only be called by llcm_exec_handle
 bool llcm_scheduler_try_reserve_new_routine_(struct llcm_scheduler *scheduler) {
     return llcm_concurrent_queue_try_reserve_size_before_push(&scheduler->queue, 1);
 }

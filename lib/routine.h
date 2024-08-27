@@ -7,6 +7,6 @@
 struct llcm_exec_handle;
 
 struct llcm_routine {
-    void *(*poll)(void *arg0, struct llcm_exec_handle *);
+    void (*poll)(void *arg0, struct llcm_exec_handle *);
     void *arg0;
 };

@@ -35,7 +35,12 @@ void llcm_exec_handle_set_routine(struct llcm_exec_handle *handle, struct llcm_r
     handle->routine = routine;
 }
 
-void llcm_exec_handle_cancel_routine(struct llcm_exec_handle *handle) { handle->scheduler = NULL; }
+void llcm_exec_handle_cancel_routine(struct llcm_exec_handle *handle) {
+    if (NULL != handle->scheduler) {
+        llcm_scheduler_old_routine_available_(handle->scheduler);
+        handle->scheduler = NULL;
+    }
+}
 
 struct llcm_scheduler *llcm_exec_handle_get_current_scheduler(struct llcm_exec_handle *handle) {
     return handle->scheduler;
