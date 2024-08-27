@@ -45,7 +45,12 @@ void *thread_exec(void *arg0) {
     return NULL;
 }
 
-uint64_t multithreaded_test(struct test_config config) {
+struct test_result {
+    uint64_t clock_time;
+    uint64_t cycle_count;
+};
+
+struct test_result multithreaded_test(struct test_config config) {
     struct llcm_concurrent_queue queue;
     alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t start_barrier = 0;
     alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t end_barrier = 0;
@@ -73,10 +78,16 @@ uint64_t multithreaded_test(struct test_config config) {
     while (__atomic_load_n(&start_barrier, __ATOMIC_SEQ_CST) != config.num_threads + 1) {
     }
 
-    uint64_t const start_time = rdtsc();
+    __asm__ __volatile__("" ::: "memory");
+    uint64_t const clock_start = clock();
+    uint64_t const cycle_start = rdtsc();
+    __asm__ __volatile__("" ::: "memory");
     while (__atomic_load_n(&queue.write_counter, __ATOMIC_SEQ_CST) < MAX_SEQUENCE) {
     }
-    uint64_t const end_time = rdtsc();
+    __asm__ __volatile__("" ::: "memory");
+    uint64_t const cycle_end = rdtsc();
+    uint64_t const clock_end = clock();
+    __asm__ __volatile__("" ::: "memory");
     __atomic_store_n(&end_barrier, 1, __ATOMIC_SEQ_CST);
 
     for (size_t tid = 0; tid < config.num_threads; tid++) {
@@ -86,20 +97,23 @@ uint64_t multithreaded_test(struct test_config config) {
     llcm_concurrent_queue_unreserve_size_after_pop(&queue, config.num_elements);
     llcm_concurrent_queue_uninit(&queue);
     thread_perf_mode_uninit();
-    return end_time - start_time;
+    return (struct test_result){.clock_time = clock_end - clock_start,
+                                .cycle_count = cycle_end - cycle_start};
 }
 
 void aggregate_test(struct test_config config) {
-    uint64_t total_cycles = 0;
+    struct test_result total = {};
     for (int i = 0; i < NUM_TESTS; i++) {
-        total_cycles += multithreaded_test(config);
+        struct test_result const current_test_result = multithreaded_test(config);
+        total.clock_time += current_test_result.clock_time;
+        total.cycle_count += current_test_result.cycle_count;
     }
-    uint64_t const average_cycles = total_cycles / NUM_TESTS;
-    double const cycles_per_iteration = average_cycles / (double) MAX_SEQUENCE;
-    printf(
-        "iterations(%lu) elements(%lu) threads(%lu) took cycles(%lu), cycles_per_iteration(%lf)\n",
-        MAX_SEQUENCE, config.num_elements, config.num_threads, average_cycles,
-        cycles_per_iteration);
+    double const clock_per_iteration = (double) total.clock_time / (NUM_TESTS * MAX_SEQUENCE);
+    double const cycles_per_iteration = (double) total.cycle_count / (NUM_TESTS * MAX_SEQUENCE);
+    printf("iterations(%lu) elements(%lu) threads(%lu) took cycles_per_iteration(%lf) "
+           "nanos_per_iteration(%lf)\n",
+           MAX_SEQUENCE, config.num_elements, config.num_threads, cycles_per_iteration,
+           clock_per_iteration * (1000000000 / (double) CLOCKS_PER_SEC));
 }
 
 int main() {
