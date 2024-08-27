@@ -19,7 +19,8 @@ struct test_config {
 struct thread_args {
     struct llcm_concurrent_queue *queue;
     struct test_config const *config;
-    uint64_t *start_barrier;
+    uint64_t *num_threads_ready;
+    uint64_t const *start_barrier;
     uint64_t const *end_barrier;
     int tid;
 };
@@ -29,11 +30,10 @@ void *thread_exec(void *arg0) {
     struct thread_args *thread_args = arg0;
     thread_perf_mode_init(thread_args->tid + 2);
     struct llcm_concurrent_queue *queue = thread_args->queue;
-    uint64_t *start_barrier = thread_args->start_barrier;
+    uint64_t const *start_barrier = thread_args->start_barrier;
     uint64_t const *end_barrier = thread_args->end_barrier;
-    __atomic_fetch_add(start_barrier, 1, __ATOMIC_SEQ_CST);
-    while (__atomic_load_n(start_barrier, __ATOMIC_SEQ_CST) !=
-           thread_args->config->num_threads + 1) {
+    __atomic_fetch_add(thread_args->num_threads_ready, 1, __ATOMIC_SEQ_CST);
+    while (__atomic_load_n(start_barrier, __ATOMIC_SEQ_CST) == 0) {
     }
 
     // benchmark
@@ -57,6 +57,7 @@ struct test_result {
 struct test_result multithreaded_test(struct test_config config) {
     // init
     struct llcm_concurrent_queue queue;
+    alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t num_threads_ready = 0;
     alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t start_barrier = 0;
     alignas(LLCM_CONCURRENT_QUEUE_CACHE_LINE_SIZE) uint64_t end_barrier = 0;
     llcm_concurrent_queue_init(&queue, config.num_elements);
@@ -72,6 +73,7 @@ struct test_result multithreaded_test(struct test_config config) {
         thread_args[tid] = (struct thread_args){
             .queue = &queue,
             .config = &config,
+            .num_threads_ready = &num_threads_ready,
             .start_barrier = &start_barrier,
             .end_barrier = &end_barrier,
             .tid = tid,
@@ -82,8 +84,8 @@ struct test_result multithreaded_test(struct test_config config) {
         }
     }
     thread_perf_mode_init(1);
-    __atomic_fetch_add(&start_barrier, 1, __ATOMIC_SEQ_CST);
-    while (__atomic_load_n(&start_barrier, __ATOMIC_SEQ_CST) != config.num_threads + 1) {
+    __atomic_fetch_add(&num_threads_ready, 1, __ATOMIC_SEQ_CST);
+    while (__atomic_load_n(&num_threads_ready, __ATOMIC_SEQ_CST) != config.num_threads + 1) {
     }
 
     // benchmark
@@ -93,6 +95,7 @@ struct test_result multithreaded_test(struct test_config config) {
     uint64_t const clock_start = clock();
     uint64_t const cycle_start = rdtsc();
     __asm__ __volatile__("" ::: "memory");
+    __atomic_store_n(&start_barrier, 1, __ATOMIC_SEQ_CST);
     while (__atomic_load_n(&queue.write_counter, __ATOMIC_SEQ_CST) < MAX_SEQUENCE) {
     }
     __asm__ __volatile__("" ::: "memory");
