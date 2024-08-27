@@ -68,9 +68,10 @@ void llcm_concurrent_queue_init_with_custom_allocate(struct llcm_concurrent_queu
                                                      struct llcm_allocator allocator) {
     memset(queue, 0, sizeof(*queue));
     capacity = llcm_round_up_pow2(capacity);
+    size_t const array_size_bytes = sizeof(struct llcm_concurrent_queue_entry) * capacity;
     queue->array = (struct llcm_concurrent_queue_entry *) allocator.allocate(
-        sizeof(struct llcm_concurrent_queue_entry),
-        sizeof(struct llcm_concurrent_queue_entry) * capacity);
+        sizeof(struct llcm_concurrent_queue_entry), array_size_bytes);
+    memset(queue->array, 0, array_size_bytes);
     queue->mask = capacity - 1;
     queue->free = allocator.free;
 }
