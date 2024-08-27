@@ -13,6 +13,7 @@ void thread_perf_mode_init(int cpu);
 void thread_perf_mode_uninit();
 
 uint64_t rdtsc(void);
+uint64_t diff_timespec(const struct timespec *, const struct timespec *);
 
 /* private */
 
@@ -62,4 +63,8 @@ uint64_t rdtsc(void) {
     unsigned int lo, hi;
     __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
     return ((uint64_t) hi << 32) | lo;
+}
+
+uint64_t diff_timespec(const struct timespec *time1, const struct timespec *time0) {
+    return (time1->tv_sec - time0->tv_sec) * 1000000000.0 + (time1->tv_nsec - time0->tv_nsec);
 }

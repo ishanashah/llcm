@@ -51,6 +51,7 @@ void *thread_exec(void *arg0) {
 struct test_result {
     uint64_t clock_time;
     uint64_t cycle_count;
+    uint64_t ts_nanos;
 };
 
 struct test_result multithreaded_test(struct test_config config) {
@@ -87,6 +88,8 @@ struct test_result multithreaded_test(struct test_config config) {
 
     // benchmark
     __asm__ __volatile__("" ::: "memory");
+    struct timespec ts_start;
+    clock_gettime(CLOCK_REALTIME, &ts_start);
     uint64_t const clock_start = clock();
     uint64_t const cycle_start = rdtsc();
     __asm__ __volatile__("" ::: "memory");
@@ -95,6 +98,8 @@ struct test_result multithreaded_test(struct test_config config) {
     __asm__ __volatile__("" ::: "memory");
     uint64_t const cycle_end = rdtsc();
     uint64_t const clock_end = clock();
+    struct timespec ts_end;
+    clock_gettime(CLOCK_REALTIME, &ts_end);
     __asm__ __volatile__("" ::: "memory");
 
     // teardown
@@ -106,22 +111,29 @@ struct test_result multithreaded_test(struct test_config config) {
     llcm_concurrent_queue_uninit(&queue);
     thread_perf_mode_uninit();
     return (struct test_result){.clock_time = clock_end - clock_start,
-                                .cycle_count = cycle_end - cycle_start};
+                                .cycle_count = cycle_end - cycle_start,
+                                .ts_nanos = diff_timespec(&ts_end, &ts_start)};
 }
 
 void aggregate_test(struct test_config config) {
-    struct test_result total = {};
+    struct test_result total = {
+        .clock_time = 0,
+        .cycle_count = 0,
+        .ts_nanos = 0,
+    };
     for (int i = 0; i < NUM_TESTS; i++) {
         struct test_result const current_test_result = multithreaded_test(config);
         total.clock_time += current_test_result.clock_time;
         total.cycle_count += current_test_result.cycle_count;
+        total.ts_nanos += current_test_result.ts_nanos;
     }
     double const clock_per_iteration = (double) total.clock_time / (NUM_TESTS * MAX_SEQUENCE);
     double const cycles_per_iteration = (double) total.cycle_count / (NUM_TESTS * MAX_SEQUENCE);
+    double const ts_nanos_per_iteration = (double) total.ts_nanos / (NUM_TESTS * MAX_SEQUENCE);
     printf("iterations(%lu) elements(%lu) threads(%lu) took cycles_per_iteration(%lf) "
-           "nanos_per_iteration(%lf)\n",
+           "nanos_per_iteration(%lf), ts_nanos_per_iteration(%lf)\n",
            MAX_SEQUENCE, config.num_elements, config.num_threads, cycles_per_iteration,
-           clock_per_iteration * (1000000000 / (double) CLOCKS_PER_SEC));
+           clock_per_iteration * (1000000000 / (double) CLOCKS_PER_SEC), ts_nanos_per_iteration);
 }
 
 int main() {
