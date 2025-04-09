@@ -5,6 +5,25 @@
             "-c",
             "-pthread",
             "-std=c11",
+            "-Wall",
+            "-O3",
+            "-march=native",
+            "-mtune=native",
+            "-I",
+            ".",
+            "-o",
+            "concurrent_queue_benchmark",
+            "benchmarks/concurrent_queue.c"
+        ],
+        "directory": "/home/ishan/code/llcm",
+        "file": "benchmarks/concurrent_queue.c"
+    },
+    {
+        "arguments": [
+            "gcc",
+            "-c",
+            "-pthread",
+            "-std=c11",
             "-ggdb",
             "-Wall",
             "-O0",
