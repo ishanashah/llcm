@@ -15,7 +15,7 @@
             "concurrent_queue_benchmark",
             "benchmarks/concurrent_queue.c"
         ],
-        "directory": "/home/ishan/code/llcm",
+        "directory": "/home/ishan/code/llcm/c",
         "file": "benchmarks/concurrent_queue.c"
     },
     {
@@ -33,7 +33,7 @@
             "concurrent_queue_test",
             "tests/concurrent_queue_test.c"
         ],
-        "directory": "/home/ishan/code/llcm",
+        "directory": "/home/ishan/code/llcm/c",
         "file": "tests/concurrent_queue_test.c"
     }
 ]
