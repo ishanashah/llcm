@@ -1,0 +1,20 @@
+[
+    {
+        "arguments": [
+            "g++",
+            "-c",
+            "-pthread",
+            "-std=c++2a",
+            "-ggdb",
+            "-Wall",
+            "-O0",
+            "-I",
+            ".",
+            "-o",
+            "concurrent_queue_test",
+            "tests/concurrent_queue_test.c"
+        ],
+        "directory": "/home/ishan/code/llcm/cpp",
+        "file": "tests/concurrent_queue_test.c"
+    }
+]
