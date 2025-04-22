@@ -23,7 +23,7 @@ template <typename T> class ConcurrentQueue {
         T element_;
     };
     static_assert(alignof(Entry) >= CACHE_LINE_SIZE, "");
-    static constexpr uint64_t llcm_round_up_pow2(uint64_t x) {
+    static constexpr uint64_t RoundUpPow2(uint64_t x) {
         return x == 1 ? 1 : 1 << (64 - __builtin_clzl(x - 1));
     }
 
@@ -37,7 +37,7 @@ template <typename T> class ConcurrentQueue {
 };
 
 template <typename T> ConcurrentQueue<T>::ConcurrentQueue(size_t capacity) {
-    capacity = llcm_round_up_pow2(capacity);
+    capacity = RoundUpPow2(capacity);
     if (capacity < 2) {
         capacity = 2;   // capacity must be at least 2 for aba_counter
     }
@@ -83,7 +83,7 @@ template <typename T> std::optional<T> ConcurrentQueue<T>::TryPop() {
             struct Entry *entry = &array_[local_read_counter & mask_];
             while (entry->aba_counter_ != local_read_counter + 1) {
             }
-            void *read_value = entry->element_;
+            T const read_value = entry->element_;
             __asm__ __volatile__("" ::: "memory");
             entry->aba_counter_ = local_read_counter + mask_ + 1;
             return read_value;

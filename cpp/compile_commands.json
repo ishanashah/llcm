@@ -12,9 +12,9 @@
             ".",
             "-o",
             "concurrent_queue_test",
-            "tests/concurrent_queue_test.c"
+            "tests/concurrent_queue_test.cpp"
         ],
         "directory": "/home/ishan/code/llcm/cpp",
-        "file": "tests/concurrent_queue_test.c"
+        "file": "tests/concurrent_queue_test.cpp"
     }
 ]
