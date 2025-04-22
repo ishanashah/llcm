@@ -5,6 +5,25 @@
             "-c",
             "-pthread",
             "-std=c++2a",
+            "-Wall",
+            "-O3",
+            "-march=native",
+            "-mtune=native",
+            "-I",
+            ".",
+            "-o",
+            "concurrent_queue_benchmark",
+            "benchmarks/concurrent_queue.cpp"
+        ],
+        "directory": "/home/ishan/code/llcm/cpp",
+        "file": "benchmarks/concurrent_queue.cpp"
+    },
+    {
+        "arguments": [
+            "g++",
+            "-c",
+            "-pthread",
+            "-std=c++2a",
             "-ggdb",
             "-Wall",
             "-O0",

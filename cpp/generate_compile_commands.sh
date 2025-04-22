@@ -1,2 +1,2 @@
 make clean
-bear make tests
+bear make all
