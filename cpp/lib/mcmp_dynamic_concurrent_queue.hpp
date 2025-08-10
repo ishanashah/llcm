@@ -29,7 +29,7 @@ inline void DynamicConcurrentQueue<T>::Push(DynamicConcurrentQueueEntry<T> *valu
     auto *const old_tail = tail_.exchange(value);
     if (old_tail == &EMPTY_SENTINEL) {
         auto *expected_empty = &EMPTY_SENTINEL;
-        while (!head_.compare_exchange_strong(expected_empty, value)) {
+        while (!head_.compare_exchange_weak(expected_empty, value)) {
         }
     } else {
         old_tail->next_ = value;
@@ -47,16 +47,15 @@ template <typename T> inline DynamicConcurrentQueueEntry<T> *DynamicConcurrentQu
     }
 
     auto *current = local_head;
-    local_head = local_head->next_;
-    head_ = local_head;
-    if (local_head == &EMPTY_SENTINEL) {
+    if (current->next_ == &EMPTY_SENTINEL) {
         auto *expected_tail = current;
         if (!tail_.compare_exchange_strong(expected_tail, &EMPTY_SENTINEL)) {
             while (current->next_ == &EMPTY_SENTINEL) {
+                __asm__ __volatile__("" ::: "memory");
             }
-            head_ = current->next_;
         }
     }
+    head_ = current->next_;
     current->next_ = nullptr;
     return current;
 }
