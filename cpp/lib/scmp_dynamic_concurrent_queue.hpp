@@ -12,13 +12,13 @@
 class Spinlock {
   public:
     void lock() {
-        while (flag.test_and_set(std::memory_order_acquire)) {
-            do {
+        do {
+            while (flag.test(std::memory_order_relaxed)) {
 #ifdef __x86_64__
                 _mm_pause();
 #endif
-            } while (flag.test(std::memory_order_relaxed));
-        }
+            }
+        } while (flag.test_and_set(std::memory_order_acquire));
     }
 
     void unlock() { flag.clear(std::memory_order_release); }
