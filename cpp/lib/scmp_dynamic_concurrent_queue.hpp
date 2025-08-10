@@ -39,15 +39,15 @@ template <typename T> class DynamicConcurrentQueue {
 
   private:
     static constexpr size_t CACHE_LINE_SIZE = 64;
-    alignas(CACHE_LINE_SIZE) std::atomic<DynamicConcurrentQueueEntry<T> *> head_ = nullptr;
-    alignas(CACHE_LINE_SIZE) std::atomic<DynamicConcurrentQueueEntry<T> *> tail_ = nullptr;
+    alignas(CACHE_LINE_SIZE) DynamicConcurrentQueueEntry<T> *head_ = nullptr;
+    alignas(CACHE_LINE_SIZE) DynamicConcurrentQueueEntry<T> *tail_ = nullptr;
     alignas(CACHE_LINE_SIZE) Spinlock consumer_spin_lock_;
 };
 
 template <typename T>
 inline void DynamicConcurrentQueue<T>::Push(DynamicConcurrentQueueEntry<T> *value) {
     value->next_ = nullptr;
-    auto *const old_tail = tail_.exchange(value);
+    auto *const old_tail = __atomic_exchange_n(&tail_, value, __ATOMIC_SEQ_CST);
     if (old_tail == nullptr) {
         head_ = value;
     } else {
@@ -65,7 +65,8 @@ template <typename T> inline DynamicConcurrentQueueEntry<T> *DynamicConcurrentQu
     head_ = current->next_;
     if (head_ == nullptr) {
         auto *expected_tail = current;
-        if (!tail_.compare_exchange_strong(expected_tail, nullptr)) {
+        if (!__atomic_compare_exchange_n(&tail_, &expected_tail, nullptr, false, __ATOMIC_SEQ_CST,
+                                         __ATOMIC_SEQ_CST)) {
             while (current->next_ == nullptr) {
                 __asm__ __volatile__("" ::: "memory");
             }
