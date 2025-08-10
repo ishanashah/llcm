@@ -47,13 +47,14 @@ template <typename T> class DynamicConcurrentQueue {
 
 template <typename T>
 inline void DynamicConcurrentQueue<T>::Push(DynamicConcurrentQueueEntry<T> *value) {
-    value->next_ = nullptr;
-    auto *const old_tail = __atomic_exchange_n(&tail_, value, __ATOMIC_SEQ_CST);
-    if (old_tail == nullptr) {
+    consumer_spin_lock_.lock();
+    if (head_ == nullptr) {
         head_ = value;
     } else {
-        old_tail->next_ = value;
+        tail_->next_ = value;
     }
+    tail_ = value;
+    consumer_spin_lock_.unlock();
 }
 
 template <typename T> inline DynamicConcurrentQueueEntry<T> *DynamicConcurrentQueue<T>::TryPop() {
@@ -61,20 +62,10 @@ template <typename T> inline DynamicConcurrentQueueEntry<T> *DynamicConcurrentQu
     if (head_ == nullptr) {
         consumer_spin_lock_.unlock();
         return nullptr;
+    } else {
+        auto *current = head_;
+        head_ = head_->next_;
+        consumer_spin_lock_.unlock();
+        return current;
     }
-    DynamicConcurrentQueueEntry<T> *current = head_;
-    head_ = current->next_;
-    if (head_ == nullptr) {
-        auto *expected_tail = current;
-        if (!__atomic_compare_exchange_n(&tail_, &expected_tail, nullptr, false, __ATOMIC_SEQ_CST,
-                                         __ATOMIC_SEQ_CST)) {
-            while (current->next_ == nullptr) {
-                __asm__ __volatile__("" ::: "memory");
-            }
-            head_ = current->next_;
-        }
-    }
-    consumer_spin_lock_.unlock();
-    current->next_ = nullptr;
-    return current;
 }
