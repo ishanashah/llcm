@@ -7,26 +7,6 @@
 
 #include <cassert>
 #include <immintrin.h>
-#include <iostream>
-
-class Spinlock {
-  public:
-    void lock() {
-        do {
-            while (flag_) {
-#ifdef __x86_64__
-                _mm_pause();
-#endif
-                __asm__ __volatile__("" ::: "memory");
-            }
-        } while (__atomic_test_and_set(&flag_, __ATOMIC_SEQ_CST));
-    }
-
-    void unlock() { flag_ = false; }
-
-  private:
-    bool flag_ = false;
-};
 
 template <typename T> struct DynamicConcurrentQueueEntry {
     DynamicConcurrentQueueEntry<T> *next_ = nullptr;
@@ -42,7 +22,25 @@ template <typename T> class DynamicConcurrentQueue {
     static constexpr size_t CACHE_LINE_SIZE = 64;
     alignas(CACHE_LINE_SIZE) DynamicConcurrentQueueEntry<T> *head_ = nullptr;
     alignas(CACHE_LINE_SIZE) DynamicConcurrentQueueEntry<T> *tail_ = nullptr;
-    alignas(CACHE_LINE_SIZE) Spinlock consumer_spin_lock_;
+
+    alignas(CACHE_LINE_SIZE) class Spinlock {
+      public:
+        inline void lock() {
+            do {
+                while (flag_) {
+#ifdef __x86_64__
+                    _mm_pause();
+#endif
+                    __asm__ __volatile__("" ::: "memory");
+                }
+            } while (__atomic_test_and_set(&flag_, __ATOMIC_SEQ_CST));
+        }
+
+        inline void unlock() { flag_ = false; }
+
+      private:
+        bool flag_ = false;
+    } consumer_spin_lock_;
 };
 
 template <typename T>
@@ -62,7 +60,7 @@ template <typename T> inline DynamicConcurrentQueueEntry<T> *DynamicConcurrentQu
         consumer_spin_lock_.unlock();
         return nullptr;
     }
-    DynamicConcurrentQueueEntry<T> *current = head_;
+    DynamicConcurrentQueueEntry<T> *const current = head_;
     head_ = current->next_;
     if (head_ == nullptr) {
         auto *expected_tail = current;

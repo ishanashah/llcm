@@ -7,26 +7,6 @@
 
 #include <cassert>
 #include <immintrin.h>
-#include <iostream>
-
-class Spinlock {
-  public:
-    void lock() {
-        do {
-            while (flag_) {
-#ifdef __x86_64__
-                _mm_pause();
-#endif
-                __asm__ __volatile__("" ::: "memory");
-            }
-        } while (__atomic_test_and_set(&flag_, __ATOMIC_SEQ_CST));
-    }
-
-    void unlock() { flag_ = false; }
-
-  private:
-    bool flag_ = false;
-};
 
 template <typename T> struct DynamicConcurrentQueueEntry {
     DynamicConcurrentQueueEntry<T> *next_ = nullptr;
@@ -42,30 +22,53 @@ template <typename T> class DynamicConcurrentQueue {
     static constexpr size_t CACHE_LINE_SIZE = 64;
     alignas(CACHE_LINE_SIZE) DynamicConcurrentQueueEntry<T> *head_ = nullptr;
     alignas(CACHE_LINE_SIZE) DynamicConcurrentQueueEntry<T> *tail_ = nullptr;
-    alignas(CACHE_LINE_SIZE) Spinlock consumer_spin_lock_;
+    alignas(CACHE_LINE_SIZE) class Spinlock {
+      public:
+        inline void lock() {
+            do {
+                while (flag_) {
+#ifdef __x86_64__
+                    _mm_pause();
+#endif
+                    __asm__ __volatile__("" ::: "memory");
+                }
+            } while (__atomic_test_and_set(&flag_, __ATOMIC_SEQ_CST));
+        }
+
+        inline void unlock() { flag_ = false; }
+
+      private:
+        bool flag_ = false;
+    } consumer_spin_lock_;
+
+    class SpinlockHandle {
+      public:
+        SpinlockHandle(Spinlock &spinlock) : spinlock_(spinlock) { spinlock.lock(); }
+        ~SpinlockHandle() { spinlock_.unlock(); }
+
+      private:
+        Spinlock &spinlock_;
+    };
 };
 
 template <typename T>
 inline void DynamicConcurrentQueue<T>::Push(DynamicConcurrentQueueEntry<T> *value) {
-    consumer_spin_lock_.lock();
+    SpinlockHandle spinlock_handle(consumer_spin_lock_);
     if (head_ == nullptr) {
         head_ = value;
     } else {
         tail_->next_ = value;
     }
     tail_ = value;
-    consumer_spin_lock_.unlock();
 }
 
 template <typename T> inline DynamicConcurrentQueueEntry<T> *DynamicConcurrentQueue<T>::TryPop() {
-    consumer_spin_lock_.lock();
+    SpinlockHandle spinlock_handle(consumer_spin_lock_);
     if (head_ == nullptr) {
-        consumer_spin_lock_.unlock();
         return nullptr;
     } else {
         auto *current = head_;
         head_ = head_->next_;
-        consumer_spin_lock_.unlock();
         return current;
     }
 }
