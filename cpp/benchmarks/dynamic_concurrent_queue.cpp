@@ -22,7 +22,7 @@ struct test_result {
 };
 
 struct thread_args {
-    DynamicConcurrentQueue<uint64_t> *queue;
+    DynamicConcurrentQueue<void> *queue;
     struct test_config const *config;
     uint64_t *num_threads_ready;
     uint64_t const *start_barrier;
@@ -34,7 +34,7 @@ void *thread_exec(void *arg0) {
     // init
     struct thread_args *thread_args = reinterpret_cast<struct thread_args *>(arg0);
     thread_perf_mode_init(thread_args->tid);
-    DynamicConcurrentQueue<uint64_t> *queue = thread_args->queue;
+    DynamicConcurrentQueue<void> *queue = thread_args->queue;
     uint64_t const *start_barrier = thread_args->start_barrier;
     __atomic_fetch_add(thread_args->num_threads_ready, 1, __ATOMIC_SEQ_CST);
     while (__atomic_load_n(start_barrier, __ATOMIC_SEQ_CST) == 0) {
@@ -42,7 +42,7 @@ void *thread_exec(void *arg0) {
 
     // benchmark
     for (size_t i = 0; i < WARMUP_AND_WINDDOWN; i++) {
-        DynamicConcurrentQueueEntry<uint64_t> *pop_result = nullptr;
+        DynamicConcurrentQueueEntry<void> *pop_result = nullptr;
         while (pop_result == nullptr) {
             pop_result = queue->TryPop();
         }
@@ -54,7 +54,7 @@ void *thread_exec(void *arg0) {
     uint64_t const cycle_start = rdtsc();
     __asm__ __volatile__("" ::: "memory");
     for (size_t i = 0; i < MAX_SEQUENCE; i++) {
-        DynamicConcurrentQueueEntry<uint64_t> *pop_result = nullptr;
+        DynamicConcurrentQueueEntry<void> *pop_result = nullptr;
         while (pop_result == nullptr) {
             pop_result = queue->TryPop();
         }
@@ -66,7 +66,7 @@ void *thread_exec(void *arg0) {
     clock_gettime(CLOCK_MONOTONIC, &ts_end);
     __asm__ __volatile__("" ::: "memory");
     for (size_t i = 0; i < WARMUP_AND_WINDDOWN; i++) {
-        DynamicConcurrentQueueEntry<uint64_t> *pop_result = nullptr;
+        DynamicConcurrentQueueEntry<void> *pop_result = nullptr;
         while (pop_result == nullptr) {
             pop_result = queue->TryPop();
         }
@@ -82,9 +82,9 @@ struct test_result multithreaded_test(struct test_config config) {
     // init
     alignas(CACHE_LINE_SIZE) uint64_t num_threads_ready = 0;
     alignas(CACHE_LINE_SIZE) uint64_t start_barrier = 0;
-    DynamicConcurrentQueue<uint64_t> queue;
+    DynamicConcurrentQueue<void> queue;
     for (size_t i = 0; i < config.num_elements; i++) {
-        queue.Push(new DynamicConcurrentQueueEntry<uint64_t>{.element_ = DUMMY_ELEMENT});
+        queue.Push(new DynamicConcurrentQueueEntry<void>{});
     }
 
     // spin up threads

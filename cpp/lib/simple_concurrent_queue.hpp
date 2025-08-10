@@ -1,12 +1,8 @@
 #pragma once
 
-#include <atomic>
-#include <mutex>
+#include <immintrin.h>
 #include <stddef.h>
 #include <stdint.h>
-
-#include <cassert>
-#include <immintrin.h>
 
 template <typename T> struct DynamicConcurrentQueueEntry {
     DynamicConcurrentQueueEntry<T> *next_ = nullptr;
