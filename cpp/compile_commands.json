@@ -1,39 +1,80 @@
 [
-    {
-        "arguments": [
-            "g++",
-            "-c",
-            "-pthread",
-            "-std=c++2a",
-            "-Wall",
-            "-O3",
-            "-march=native",
-            "-mtune=native",
-            "-I",
-            ".",
-            "-o",
-            "concurrent_queue_benchmark",
-            "benchmarks/concurrent_queue.cpp"
-        ],
-        "directory": "/home/ishan/code/llcm/cpp",
-        "file": "benchmarks/concurrent_queue.cpp"
-    },
-    {
-        "arguments": [
-            "g++",
-            "-c",
-            "-pthread",
-            "-std=c++2a",
-            "-ggdb",
-            "-Wall",
-            "-O0",
-            "-I",
-            ".",
-            "-o",
-            "concurrent_queue_test",
-            "tests/concurrent_queue_test.cpp"
-        ],
-        "directory": "/home/ishan/code/llcm/cpp",
-        "file": "tests/concurrent_queue_test.cpp"
-    }
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-pthread",
+      "-std=c++2a",
+      "-ggdb",
+      "-Wall",
+      "-O0",
+      "-I",
+      ".",
+      "-o",
+      "concurrent_queue_test",
+      "tests/concurrent_queue_test.cpp"
+    ],
+    "directory": "/home/ishan/code/llcm/cpp",
+    "file": "/home/ishan/code/llcm/cpp/tests/concurrent_queue_test.cpp",
+    "output": "/home/ishan/code/llcm/cpp/concurrent_queue_test"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-pthread",
+      "-std=c++2a",
+      "-ggdb",
+      "-Wall",
+      "-O0",
+      "-I",
+      ".",
+      "-o",
+      "dynamic_concurrent_queue_test",
+      "tests/dynamic_concurrent_queue_test.cpp"
+    ],
+    "directory": "/home/ishan/code/llcm/cpp",
+    "file": "/home/ishan/code/llcm/cpp/tests/dynamic_concurrent_queue_test.cpp",
+    "output": "/home/ishan/code/llcm/cpp/dynamic_concurrent_queue_test"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-pthread",
+      "-std=c++2a",
+      "-Wall",
+      "-O3",
+      "-march=native",
+      "-mtune=native",
+      "-I",
+      ".",
+      "-o",
+      "concurrent_queue_benchmark",
+      "benchmarks/concurrent_queue.cpp"
+    ],
+    "directory": "/home/ishan/code/llcm/cpp",
+    "file": "/home/ishan/code/llcm/cpp/benchmarks/concurrent_queue.cpp",
+    "output": "/home/ishan/code/llcm/cpp/concurrent_queue_benchmark"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-pthread",
+      "-std=c++2a",
+      "-Wall",
+      "-O3",
+      "-march=native",
+      "-mtune=native",
+      "-I",
+      ".",
+      "-o",
+      "dynamic_concurrent_queue_benchmark",
+      "benchmarks/dynamic_concurrent_queue.cpp"
+    ],
+    "directory": "/home/ishan/code/llcm/cpp",
+    "file": "/home/ishan/code/llcm/cpp/benchmarks/dynamic_concurrent_queue.cpp",
+    "output": "/home/ishan/code/llcm/cpp/dynamic_concurrent_queue_benchmark"
+  }
 ]

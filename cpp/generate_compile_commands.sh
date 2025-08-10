@@ -1,2 +1,3 @@
 make clean
-bear make all
+bear -- make all
+make clean
