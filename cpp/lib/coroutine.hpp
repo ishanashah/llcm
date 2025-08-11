@@ -5,9 +5,14 @@
 
 class Coroutine {
   public:
-    Coroutine(Scheduler *scheduler, Context *context) : scheduler_(scheduler), context_(context) {}
+    Coroutine(Scheduler<Coroutine> *scheduler, Context<Scheduler<Coroutine>, Coroutine> *context)
+        : scheduler_(scheduler), context_(context) {}
+
+    void Yeild() { context_->SwitchBack(); }
+
+    void Schedule(ICallable *callable) { scheduler_->Schedule(callable); }
 
   private:
-    Scheduler *scheduler_ = nullptr;
-    Context *context_ = nullptr;
+    Scheduler<Coroutine> *scheduler_ = nullptr;
+    Context<Scheduler<Coroutine>, Coroutine> *context_ = nullptr;
 };

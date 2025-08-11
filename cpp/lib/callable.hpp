@@ -3,6 +3,6 @@
 class Coroutine;
 
 struct ICallable {
-    virtual void operator()() = 0;
+    virtual void operator()(Coroutine *) = 0;
     virtual ~ICallable() = default;
 };
