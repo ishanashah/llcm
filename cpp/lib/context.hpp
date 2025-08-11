@@ -1,6 +1,6 @@
 #pragma once
 
-#include "callable.hpp"
+#include "i_context.hpp"
 #include "utils.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -9,14 +9,10 @@
 #include <ucontext.h>
 #include <vector>
 
-struct SwitchBackTask {
-    virtual void operator()() = 0;
-};
-
-template <typename SCHEDULER, typename COROUTINE> class Context {
+template <typename Traits, typename F> class Context final : public IContext {
   public:
-    Context(SCHEDULER *scheduler, size_t stack_size, ICallable *callable)
-        : stack_(stack_size), callable_(callable), scheduler_(scheduler) {
+    Context(Traits::SchedulerT *scheduler, size_t stack_size, F &&callable)
+        : stack_(stack_size), callable_(std::forward<F>(callable)), scheduler_(scheduler) {
         int ret = getcontext(&context_);
         PROD_ASSERT(ret == 0)
         context_.uc_stack.ss_sp = &stack_[0];
@@ -24,9 +20,9 @@ template <typename SCHEDULER, typename COROUTINE> class Context {
         makecontext(&context_, (void (*)()) Invoke, 1, this);
     }
 
-    bool IsActive() const { return callable_ != nullptr; }
+    bool IsActive() const override { return is_active_; }
 
-    void Switch() {
+    void Switch() override {
         ucontext_t main_context;
         main_context_ = &main_context;
         int ret = swapcontext(main_context_, &context_);
@@ -35,7 +31,7 @@ template <typename SCHEDULER, typename COROUTINE> class Context {
         switch_back_task_ = nullptr;
     }
 
-    void SwitchBack(SwitchBackTask *task) {
+    void SwitchBack(SwitchBackTask *task) override {
         auto const *local_main_context = main_context_;
         main_context_ = nullptr;
         switch_back_task_ = task;
@@ -45,9 +41,9 @@ template <typename SCHEDULER, typename COROUTINE> class Context {
 
   private:
     static void Invoke(Context *context) {
-        COROUTINE coroutine(context->scheduler_, context);
-        (*context->callable_)(&coroutine);
-        context->callable_ = nullptr;
+        typename Traits::CoroutineT coroutine(context->scheduler_, context);
+        context->callable_(&coroutine);
+        context->is_active_ = false;
         setcontext(context->main_context_);
         DIE();   // unreachable
     }
@@ -56,7 +52,8 @@ template <typename SCHEDULER, typename COROUTINE> class Context {
     ucontext_t context_{};
     ucontext_t *main_context_ = nullptr;
     std::vector<uint8_t> stack_;
-    ICallable *callable_ = nullptr;
-    SCHEDULER *scheduler_ = nullptr;
+    F callable_;
+    bool is_active_ = true;
+    Traits::SchedulerT *scheduler_ = nullptr;
     SwitchBackTask *switch_back_task_ = nullptr;
 };

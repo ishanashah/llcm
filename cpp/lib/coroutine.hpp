@@ -1,14 +1,14 @@
 #pragma once
 
-#include "context.hpp"
-#include "scheduler.hpp"
+#include "i_context.hpp"
 #include "scmp_dynamic_concurrent_queue.hpp"
+#include <utility>
 
-class Mutex;
+template <typename Traits> class Mutex;
 
-class Coroutine {
+template <typename Traits> class Coroutine {
   public:
-    Coroutine(Scheduler<Coroutine> *scheduler, Context<Scheduler<Coroutine>, Coroutine> *context)
+    Coroutine(Traits::SchedulerT *scheduler, IContext *context)
         : scheduler_(scheduler), context_(context) {}
 
     void Yeild() {
@@ -20,14 +20,16 @@ class Coroutine {
         context_->SwitchBack(&task);
     }
 
-    void Schedule(ICallable *callable) { scheduler_->Schedule(callable); }
+    template <typename F> void Schedule(F &&callable) {
+        scheduler_->Schedule(std::forward<F>(callable));
+    }
 
   private:
-    friend Mutex;
+    friend Mutex<Traits>;
     void SwitchBack(SwitchBackTask *task) { context_->SwitchBack(task); }
-    void Schedule() { scheduler_->Schedule(context_); }
+    void Schedule() { scheduler_->ScheduleContext(context_); }
 
-    Scheduler<Coroutine> *scheduler_ = nullptr;
-    Context<Scheduler<Coroutine>, Coroutine> *context_ = nullptr;
+    Traits::SchedulerT *scheduler_ = nullptr;
+    IContext *context_ = nullptr;
     DynamicConcurrentQueueEntry<Coroutine *> queue_entry_{.element_ = this};
 };

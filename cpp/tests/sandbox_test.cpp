@@ -1,7 +1,7 @@
-#include "lib/callable.hpp"
 #include "lib/coroutine.hpp"
 #include "lib/mutex.hpp"
 #include "lib/scheduler.hpp"
+#include "lib/traits.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -12,9 +12,8 @@
 static constexpr size_t SCHEDULER_CAPACITY = 100;
 static constexpr size_t STACK_SIZE = 1024 * 16;
 
-struct Callable final : public ICallable {
-
-    virtual void operator()(Coroutine *coroutine) override {
+struct Callable {
+    void operator()(Coroutine<Traits> *coroutine) {
         while (true) {
             counter_ += 1;
             mutex_->Lock(coroutine);
@@ -26,16 +25,16 @@ struct Callable final : public ICallable {
 
     uint64_t counter_ = 0;
     uint64_t *shared_counter_ = 0;
-    Mutex *mutex_ = nullptr;
+    Mutex<Traits> *mutex_ = nullptr;
 };
 
 struct ThreadArgs {
     size_t tid_ = 0;
-    Scheduler<Coroutine> *scheduler = nullptr;
+    Scheduler<Traits> *scheduler = nullptr;
 };
 
 void worker_function(std::stop_token stoken, ThreadArgs args) {
-    Scheduler<Coroutine> *scheduler = args.scheduler;
+    Scheduler<Traits> *scheduler = args.scheduler;
     for (auto i = 0; i < 10000; i++) {
         bool success = false;
         do {
@@ -45,15 +44,15 @@ void worker_function(std::stop_token stoken, ThreadArgs args) {
 }
 
 int main() {
-    Scheduler<Coroutine> scheduler(SCHEDULER_CAPACITY, STACK_SIZE);
+    Scheduler<Traits> scheduler(SCHEDULER_CAPACITY, STACK_SIZE);
     uint64_t shared_counter = 0;
     Callable callable0;
     callable0.shared_counter_ = &shared_counter;
-    scheduler.Schedule(&callable0);
+    scheduler.Schedule(callable0);
     Callable callable1;
     callable1.shared_counter_ = &shared_counter;
-    scheduler.Schedule(&callable1);
-    Mutex mutex;
+    scheduler.Schedule(callable1);
+    Mutex<Traits> mutex;
     callable0.mutex_ = &mutex;
     callable1.mutex_ = &mutex;
     ThreadArgs args0{.tid_ = 0, .scheduler = &scheduler};

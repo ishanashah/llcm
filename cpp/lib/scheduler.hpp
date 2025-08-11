@@ -1,27 +1,28 @@
 #pragma once
 
-#include "callable.hpp"
 #include "concurrent_queue.hpp"
 #include "context.hpp"
+#include "i_context.hpp"
 #include <memory>
 #include <stddef.h>
 #include <stdint.h>
 
-template <typename Coroutine> class Scheduler {
+template <typename Traits> class Scheduler {
   public:
     Scheduler(size_t capacity, size_t stack_size) : queue_(capacity), stack_size_(stack_size) {}
 
-    void Schedule(ICallable *callable) {
-        auto *context = new Context<Scheduler, Coroutine>(this, stack_size_, callable);
-        Schedule(std::move(context));
+    template <typename F> void Schedule(F &&callable) {
+        auto *context =
+            new typename Traits::template ContextT<F>(this, stack_size_, std::forward<F>(callable));
+        ScheduleContext(std::move(context));
     }
 
     bool Poll() {
-        std::optional<Context<Scheduler, Coroutine> *> maybe_next = queue_.TryPop();
+        std::optional<IContext *> maybe_next = queue_.TryPop();
         if (!maybe_next.has_value()) {
             return false;
         }
-        Context<Scheduler, Coroutine> *next = std::move(maybe_next.value());
+        IContext *next = std::move(maybe_next.value());
         next->Switch();
         if (!next->IsActive()) {
             delete next;
@@ -30,10 +31,10 @@ template <typename Coroutine> class Scheduler {
     }
 
   private:
-    friend Coroutine;
-    void Schedule(Context<Scheduler, Coroutine> *context) { queue_.Push(std::move(context)); }
+    friend Traits::CoroutineT;
+    void ScheduleContext(IContext *context) { queue_.Push(std::move(context)); }
 
   private:
-    ConcurrentQueue<Context<Scheduler, Coroutine> *> queue_;
+    ConcurrentQueue<IContext *> queue_;
     size_t stack_size_;
 };
