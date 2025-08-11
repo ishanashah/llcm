@@ -10,13 +10,8 @@
 
 template <typename SCHEDULER, typename COROUTINE> class Context {
   public:
-    Context(SCHEDULER *scheduler, size_t stack_size, ICallable *callable)
-        : stack_(stack_size), callable_(callable), coroutine_(scheduler, this) {
-        int ret = getcontext(&context_);
-        PROD_ASSERT(ret == 0)
-        context_.uc_stack.ss_sp = &stack_[0];
-        context_.uc_stack.ss_size = stack_size;
-        makecontext(&context_, (void (*)()) Invoke, 1, this);
+    static Context *Make(SCHEDULER *scheduler, size_t stack_size, ICallable *callable) {
+        return new Context(scheduler, stack_size, callable);
     }
 
     bool IsActive() const { return callable_ != nullptr; }
@@ -34,13 +29,22 @@ template <typename SCHEDULER, typename COROUTINE> class Context {
     }
 
   private:
-    void operator()() {
-        (*callable_)(&coroutine_);
-        callable_ = nullptr;
-        SwitchBack();
+    Context(SCHEDULER *scheduler, size_t stack_size, ICallable *callable)
+        : stack_(stack_size), callable_(callable), coroutine_(scheduler, this) {
+        int ret = getcontext(&context_);
+        PROD_ASSERT(ret == 0)
+        context_.uc_stack.ss_sp = &stack_[0];
+        context_.uc_stack.ss_size = stack_size;
+        makecontext(&context_, (void (*)()) Invoke, 1, this);
     }
 
-    static void Invoke(Context *context) { (*context)(); }
+    static void Invoke(Context *context) {
+        (*context->callable_)(&context->coroutine_);
+        auto const *main_context_ = context->context_.uc_link;
+        delete context;
+        int ret = setcontext(main_context_);
+        PROD_ASSERT(ret == 0);
+    }
 
   private:
     ucontext_t context_;
