@@ -22,11 +22,10 @@ template <typename Coroutine> class Scheduler {
             return false;
         }
         Context<Scheduler, Coroutine> *next = std::move(maybe_next.value());
-        SwitchBackTask *task = next->Switch();
-        (*task)();
-        // if (!next->IsActive()) {
-        //     delete next;
-        // }
+        next->Switch();
+        if (!next->IsActive()) {
+            delete next;
+        }
         return true;
     }
 

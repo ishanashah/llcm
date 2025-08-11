@@ -26,14 +26,13 @@ template <typename SCHEDULER, typename COROUTINE> class Context {
 
     bool IsActive() const { return callable_ != nullptr; }
 
-    SwitchBackTask *Switch() {
+    void Switch() {
         ucontext_t main_context;
         main_context_ = &main_context;
         int ret = swapcontext(main_context_, &context_);
         PROD_ASSERT(ret == 0);
-        auto *local_switch_back_task = switch_back_task_;
+        (*switch_back_task_)();
         switch_back_task_ = nullptr;
-        return local_switch_back_task;
     }
 
     void SwitchBack(SwitchBackTask *task) {

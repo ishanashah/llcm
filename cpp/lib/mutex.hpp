@@ -12,12 +12,18 @@ class Mutex {
         if (local_counter == 0) {
             return;
         }
-        queue_.Push(&coroutine->queue_entry_);
-        // coroutine->SwitchBack();
+        struct SwitchBackTaskEnqueue : public SwitchBackTask {
+            SwitchBackTaskEnqueue(Mutex *mutex, Coroutine *coroutine)
+                : mutex_(mutex), coroutine_(coroutine) {}
+            void operator()() override { mutex_->queue_.Push(&coroutine_->queue_entry_); }
+            Mutex *mutex_ = nullptr;
+            Coroutine *coroutine_ = nullptr;
+        } task(this, coroutine);
+        coroutine->SwitchBack(&task);
     }
 
     void Unlock() {
-        auto const local_counter = __atomic_fetch_sub(&counter_, 1, __ATOMIC_ACQUIRE);
+        auto const local_counter = __atomic_sub_fetch(&counter_, 1, __ATOMIC_RELEASE);
         if (local_counter > 0) {
             DynamicConcurrentQueueEntry<Coroutine *> *next_queue_entry = nullptr;
             do {
