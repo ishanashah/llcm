@@ -13,7 +13,7 @@ class Mutex {
             return;
         }
         queue_.Push(&coroutine->queue_entry_);
-        coroutine->SwitchBack();
+        // coroutine->SwitchBack();
     }
 
     void Unlock() {

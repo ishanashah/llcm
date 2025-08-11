@@ -12,7 +12,7 @@ template <typename Coroutine> class Scheduler {
     Scheduler(size_t capacity, size_t stack_size) : queue_(capacity), stack_size_(stack_size) {}
 
     void Schedule(ICallable *callable) {
-        auto *context = Context<Scheduler, Coroutine>::Make(this, stack_size_, callable);
+        auto *context = new Context<Scheduler, Coroutine>(this, stack_size_, callable);
         Schedule(std::move(context));
     }
 
@@ -22,7 +22,11 @@ template <typename Coroutine> class Scheduler {
             return false;
         }
         Context<Scheduler, Coroutine> *next = std::move(maybe_next.value());
-        next->Switch();
+        SwitchBackTask *task = next->Switch();
+        (*task)();
+        // if (!next->IsActive()) {
+        //     delete next;
+        // }
         return true;
     }
 

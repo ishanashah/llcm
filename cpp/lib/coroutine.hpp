@@ -12,15 +12,19 @@ class Coroutine {
         : scheduler_(scheduler), context_(context) {}
 
     void Yeild() {
-        scheduler_->Schedule(context_);
-        context_->SwitchBack();
+        struct SwitchBackTaskSchedule : public SwitchBackTask {
+            SwitchBackTaskSchedule(Coroutine *coroutine) : coroutine_(coroutine) {}
+            void operator()() override { coroutine_->Schedule(); }
+            Coroutine *coroutine_ = nullptr;
+        } task(this);
+        context_->SwitchBack(&task);
     }
 
     void Schedule(ICallable *callable) { scheduler_->Schedule(callable); }
 
   private:
     friend Mutex;
-    void SwitchBack() { context_->SwitchBack(); }
+    void SwitchBack(SwitchBackTask *task) { context_->SwitchBack(task); }
     void Schedule() { scheduler_->Schedule(context_); }
 
     Scheduler<Coroutine> *scheduler_ = nullptr;
