@@ -68,7 +68,7 @@ template <typename T> void ConcurrentQueue<T>::Push(T value) {
     struct Entry *entry = &array_[reserved_write_counter & mask_];
     while (entry->aba_counter_ != reserved_write_counter) {
     }
-    entry->element_ = value;
+    entry->element_ = std::move(value);
     __asm__ __volatile__("" ::: "memory");
     entry->aba_counter_ = reserved_write_counter + 1;
 }
@@ -83,7 +83,7 @@ template <typename T> std::optional<T> ConcurrentQueue<T>::TryPop() {
             struct Entry *entry = &array_[local_read_counter & mask_];
             while (entry->aba_counter_ != local_read_counter + 1) {
             }
-            T const read_value = entry->element_;
+            T read_value = std::move(entry->element_);
             __asm__ __volatile__("" ::: "memory");
             entry->aba_counter_ = local_read_counter + mask_ + 1;
             return read_value;
