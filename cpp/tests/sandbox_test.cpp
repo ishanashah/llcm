@@ -18,9 +18,10 @@ int main() {
     std::cout << "Context is " << sizeof(Context) << "bytes" << std::endl;
 
     Callable callable;
-    auto coroutine = scheduler.CreateCoroutine(&callable);
-    scheduler.Schedule(std::move(coroutine));
+    scheduler.Schedule(&callable);
     std::cout << "CALLING POLL" << std::endl;
+    scheduler.Poll();
+    std::cout << "CALLING POLL AGAIN" << std::endl;
     scheduler.Poll();
     std::cout << "SUCCESS" << std::endl;
 }
