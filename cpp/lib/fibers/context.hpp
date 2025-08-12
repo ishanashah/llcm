@@ -1,7 +1,7 @@
 #pragma once
 
 #include "i_context.hpp"
-#include "utils.hpp"
+#include "lib/utils.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <future>
@@ -41,8 +41,8 @@ template <typename Traits, typename F> class Context final : public IContext {
 
   private:
     static void Invoke(Context *context) {
-        typename Traits::CoroutineT coroutine(context->scheduler_, context);
-        context->callable_(&coroutine);
+        typename Traits::FiberT fiber(context->scheduler_, context);
+        context->callable_(&fiber);
         context->is_active_ = false;
         setcontext(context->main_context_);
         DIE();   // unreachable

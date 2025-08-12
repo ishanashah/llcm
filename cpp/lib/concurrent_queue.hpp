@@ -13,7 +13,8 @@ template <typename T> class ConcurrentQueue {
 
     bool TryReserveSizeBeforePush(size_t num_new_entries);
     void UnreserveSizeAfterPop(size_t num_old_entries);
-    void Push(T);
+
+    template <typename U> void Push(U &&);
     std::optional<T> TryPop();
 
   private:
@@ -62,13 +63,13 @@ template <typename T> void ConcurrentQueue<T>::UnreserveSizeAfterPop(size_t num_
     __atomic_fetch_sub(&reserved_push_size_, num_old_entries, __ATOMIC_SEQ_CST);
 }
 
-template <typename T> void ConcurrentQueue<T>::Push(T value) {
+template <typename T> template <typename U> void ConcurrentQueue<T>::Push(U &&value) {
     uint64_t const reserved_write_counter =
         __atomic_fetch_add(&write_counter_, 1, __ATOMIC_SEQ_CST);
     struct Entry *entry = &array_[reserved_write_counter & mask_];
     while (entry->aba_counter_ != reserved_write_counter) {
     }
-    entry->element_ = std::move(value);
+    entry->element_ = std::forward<U>(value);
     __asm__ __volatile__("" ::: "memory");
     entry->aba_counter_ = reserved_write_counter + 1;
 }

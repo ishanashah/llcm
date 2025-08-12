@@ -1,7 +1,7 @@
-#include "lib/coroutine.hpp"
-#include "lib/mutex.hpp"
-#include "lib/scheduler.hpp"
-#include "lib/traits.hpp"
+#include "lib/fibers/fiber.hpp"
+#include "lib/fibers/mutex.hpp"
+#include "lib/fibers/scheduler.hpp"
+#include "lib/fibers/traits.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -13,13 +13,13 @@ static constexpr size_t SCHEDULER_CAPACITY = 100;
 static constexpr size_t STACK_SIZE = 1024 * 16;
 
 struct Callable {
-    void operator()(Coroutine<Traits> *coroutine) {
+    void operator()(Fiber<Traits> *fiber) {
         while (true) {
             counter_ += 1;
-            mutex_->Lock(coroutine);
+            mutex_->Lock(fiber);
             *shared_counter_ += 1;
             mutex_->Unlock();
-            coroutine->Yeild();
+            fiber->Yeild();
         }
     }
 

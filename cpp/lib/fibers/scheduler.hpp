@@ -1,8 +1,8 @@
 #pragma once
 
-#include "concurrent_queue.hpp"
 #include "context.hpp"
 #include "i_context.hpp"
+#include "lib/concurrent_queue.hpp"
 #include <memory>
 #include <stddef.h>
 #include <stdint.h>
@@ -31,7 +31,7 @@ template <typename Traits> class Scheduler {
     }
 
   private:
-    friend Traits::CoroutineT;
+    friend Traits::FiberT;
     void ScheduleContext(IContext *context) { queue_.Push(std::move(context)); }
 
   private:

@@ -1,12 +1,12 @@
 #pragma once
 
 #include "context.hpp"
-#include "coroutine.hpp"
+#include "fiber.hpp"
 #include "scheduler.hpp"
 
 struct Traits {
     template <typename F> using ContextT = Context<Traits, F>;
 
-    using CoroutineT = Coroutine<Traits>;
+    using FiberT = Fiber<Traits>;
     using SchedulerT = Scheduler<Traits>;
 };

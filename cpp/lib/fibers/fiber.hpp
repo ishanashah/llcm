@@ -1,21 +1,21 @@
 #pragma once
 
 #include "i_context.hpp"
-#include "scmp_dynamic_concurrent_queue.hpp"
+#include "lib/scmp_dynamic_concurrent_queue.hpp"
 #include <utility>
 
 template <typename Traits> class Mutex;
 
-template <typename Traits> class Coroutine {
+template <typename Traits> class Fiber {
   public:
-    Coroutine(Traits::SchedulerT *scheduler, IContext *context)
+    Fiber(Traits::SchedulerT *scheduler, IContext *context)
         : scheduler_(scheduler), context_(context) {}
 
     void Yeild() {
         struct SwitchBackTaskSchedule : public SwitchBackTask {
-            SwitchBackTaskSchedule(Coroutine *coroutine) : coroutine_(coroutine) {}
-            void operator()() override { coroutine_->Schedule(); }
-            Coroutine *coroutine_ = nullptr;
+            SwitchBackTaskSchedule(Fiber *fiber) : fiber_(fiber) {}
+            void operator()() override { fiber_->Schedule(); }
+            Fiber *fiber_ = nullptr;
         } task(this);
         context_->SwitchBack(&task);
     }
@@ -31,5 +31,5 @@ template <typename Traits> class Coroutine {
 
     Traits::SchedulerT *scheduler_ = nullptr;
     IContext *context_ = nullptr;
-    DynamicConcurrentQueueEntry<Coroutine *> queue_entry_{.element_ = this};
+    DynamicConcurrentQueueEntry<Fiber *> queue_entry_{.element_ = this};
 };
