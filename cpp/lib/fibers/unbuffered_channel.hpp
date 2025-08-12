@@ -1,21 +1,28 @@
 #pragma once
 
 #include "semaphore.hpp"
+#include <cstddef>
 
 template <typename Traits, typename T> class UnbufferedChannel {
   public:
     void Send(Traits::FiberT *fiber, T value) {
         sender_.Wait(fiber);
         value_ = std::move(value);
-        waiting_sender_ = fiber;
-        fiber->SwitchBack([&]() { receiver_.Signal(); });
+        if (receiver_.GetCounter() < 0) {
+            receiver_.Signal();
+        } else {
+            waiting_sender_ = fiber;
+            fiber->SwitchBack([&]() { receiver_.Signal(); });
+        }
     }
 
     T Receive(Traits::FiberT *fiber) {
         receiver_.Wait();
         T value = std::move(value_);
-        waiting_sender_->Schedule();
-        waiting_sender_ = nullptr;
+        if (waiting_sender_ != nullptr) {
+            waiting_sender_->Schedule();
+            waiting_sender_ = nullptr;
+        }
         sender_.Signal();
         return value;
     }

@@ -10,6 +10,8 @@ template <typename Traits> class Semaphore {
     Semaphore() : Semaphore(0) {}
     Semaphore(uint64_t count) : counter_(count) {}
 
+    int64_t GetCounter() const { return __atomic_load_n(&counter_, __ATOMIC_SEQ_CST); }
+
     void Wait(Traits::FiberT *fiber) {
         auto const local_counter = __atomic_sub_fetch(&counter_, 1, __ATOMIC_SEQ_CST);
         if (local_counter < 0) {
