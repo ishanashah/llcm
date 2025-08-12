@@ -12,14 +12,7 @@ template <typename Traits> class Mutex {
         if (local_counter == 0) {
             return;
         }
-        struct SwitchBackTaskEnqueue : public SwitchBackTask {
-            SwitchBackTaskEnqueue(Mutex *mutex, Traits::FiberT *fiber)
-                : mutex_(mutex), fiber_(fiber) {}
-            void operator()() override { mutex_->queue_.Push(&fiber_->queue_entry_); }
-            Mutex *mutex_ = nullptr;
-            Traits::FiberT *fiber_ = nullptr;
-        } task(this, fiber);
-        fiber->SwitchBack(&task);
+        fiber->SwitchBack([&]() { queue_.Push(&fiber->queue_entry_); });
     }
 
     void Unlock() {

@@ -30,7 +30,11 @@ template <typename Traits> class Fiber {
     friend Mutex<Traits>;
     friend ConditionVariable<Traits>;
     friend Semaphore<Traits>;
-    void SwitchBack(SwitchBackTask *task) { context_->SwitchBack(task); }
+
+    template <typename F> void SwitchBack(F &&task) {
+        SwitchBackTaskWrapper task_wrapper(std::forward<F>(task));
+        context_->SwitchBack(&task_wrapper);
+    }
     void Schedule() { scheduler_->ScheduleContext(context_); }
 
     Traits::SchedulerT *scheduler_ = nullptr;

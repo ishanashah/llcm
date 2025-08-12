@@ -11,14 +11,7 @@ template <typename Traits> class ConditionVariable {
     void Wait(Traits::FiberT *fiber, Mutex<Traits> *mutex) {
         __atomic_fetch_add(&counter_, 1, __ATOMIC_ACQUIRE);
         mutex->Unlock();
-        struct SwitchBackTaskEnqueue : public SwitchBackTask {
-            SwitchBackTaskEnqueue(ConditionVariable *condition_variable, Traits::FiberT *fiber)
-                : condition_variable_(condition_variable), fiber_(fiber) {}
-            void operator()() override { condition_variable_->queue_.Push(&fiber_->queue_entry_); }
-            ConditionVariable *condition_variable_ = nullptr;
-            Traits::FiberT *fiber_ = nullptr;
-        } task(this, fiber);
-        fiber->SwitchBack(&task);
+        fiber->SwitchBack([&]() { queue_.Push(&fiber->queue_entry_); });
         mutex->Lock(fiber);
     }
 

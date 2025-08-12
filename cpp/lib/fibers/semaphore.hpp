@@ -7,23 +7,19 @@
 
 template <typename Traits> class Semaphore {
   public:
+    Semaphore() : Semaphore(0) {}
+    Semaphore(uint64_t count) : counter_(count) {}
+
     void Wait(Traits::FiberT *fiber) {
-        auto const local_num_waiters = __atomic_add_fetch(&num_waiters_, 1, __ATOMIC_SEQ_CST);
-        if (local_num_waiters > num_signals_) {
-            struct SwitchBackTaskEnqueue : public SwitchBackTask {
-                SwitchBackTaskEnqueue(Semaphore *semaphore, Traits::FiberT *fiber)
-                    : semaphore_(semaphore), fiber_(fiber) {}
-                void operator()() override { semaphore_->queue_.Push(&fiber_->queue_entry_); }
-                Semaphore *semaphore_ = nullptr;
-                Traits::FiberT *fiber_ = nullptr;
-            } task(this, fiber);
-            fiber->SwitchBack(&task);
+        auto const local_counter = __atomic_sub_fetch(&counter_, 1, __ATOMIC_SEQ_CST);
+        if (local_counter < 0) {
+            fiber->SwitchBack([&]() { queue_.Push(&fiber->queue_entry_); });
         }
     }
 
     void Signal() {
-        auto const local_num_signals = __atomic_add_fetch(&num_signals_, 1, __ATOMIC_SEQ_CST);
-        if (local_num_signals > num_waiters_) {
+        auto const local_counter = __atomic_fetch_add(&counter_, 1, __ATOMIC_SEQ_CST);
+        if (local_counter < 0) {
             DynamicConcurrentQueueEntry<typename Traits::FiberT *> *next_queue_entry = nullptr;
             do {
                 next_queue_entry = queue_.TryPop();
@@ -34,7 +30,6 @@ template <typename Traits> class Semaphore {
     }
 
   private:
-    alignas(Traits::CACHE_LINE_SIZE) uint64_t num_waiters_ = 0;
-    alignas(Traits::CACHE_LINE_SIZE) uint64_t num_signals_ = 0;
+    alignas(Traits::CACHE_LINE_SIZE) int64_t counter_ = 0;
     DynamicConcurrentQueue<typename Traits::FiberT *> queue_;
 };
