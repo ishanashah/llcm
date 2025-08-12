@@ -9,4 +9,6 @@ struct Traits {
 
     using FiberT = Fiber<Traits>;
     using SchedulerT = Scheduler<Traits>;
+
+    static constexpr size_t CACHE_LINE_SIZE = 64;
 };

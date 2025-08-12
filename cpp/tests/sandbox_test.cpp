@@ -2,7 +2,9 @@
 #include "lib/fibers/fiber.hpp"
 #include "lib/fibers/mutex.hpp"
 #include "lib/fibers/scheduler.hpp"
+#include "lib/fibers/semaphore.hpp"
 #include "lib/fibers/traits.hpp"
+#include "lib/fibers/unbuffered_channel.hpp"
 
 #include <cassert>
 #include <iostream>
