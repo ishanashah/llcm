@@ -5,9 +5,9 @@
 
 template <typename Traits, typename T> class UnbufferedChannel {
   public:
-    void Send(Traits::FiberT *fiber, T value) {
+    template <typename U> void Send(Traits::FiberT *fiber, U &&value) {
         sender_.Wait(fiber);
-        value_ = std::move(value);
+        value_ = std::forward<U>(value);
         if (receiver_.GetCounter() < 0) {
             receiver_.Signal();
         } else {
