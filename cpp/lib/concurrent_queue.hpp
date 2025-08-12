@@ -16,12 +16,13 @@ template <typename T> class ConcurrentQueue {
 
     template <typename U> void Push(U &&);
     std::optional<T> TryPop();
+    T ForcePop();
 
   private:
     static constexpr size_t CACHE_LINE_SIZE = 64;
     struct Entry {
         alignas(CACHE_LINE_SIZE) volatile uint64_t aba_counter_ = 0;
-        T element_;
+        alignas(CACHE_LINE_SIZE) T element_;
     };
     static_assert(alignof(Entry) >= CACHE_LINE_SIZE, "");
     static constexpr uint64_t RoundUpPow2(uint64_t x) {
@@ -91,4 +92,15 @@ template <typename T> std::optional<T> ConcurrentQueue<T>::TryPop() {
         }
     }
     return std::nullopt;
+}
+
+template <typename T> T ConcurrentQueue<T>::ForcePop() {
+    uint64_t const reserved_read_counter = __atomic_fetch_add(&read_counter_, 1, __ATOMIC_SEQ_CST);
+    struct Entry *entry = &array_[reserved_read_counter & mask_];
+    while (entry->aba_counter_ != reserved_read_counter + 1) {
+    }
+    T read_value = std::move(entry->element_);
+    __asm__ __volatile__("" ::: "memory");
+    entry->aba_counter_ = reserved_read_counter + mask_ + 1;
+    return read_value;
 }

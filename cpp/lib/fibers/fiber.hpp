@@ -7,6 +7,7 @@
 template <typename Traits> class Mutex;
 template <typename Traits> class ConditionVariable;
 template <typename Traits> class Semaphore;
+template <typename Traits, typename T> class UnbufferedChannel;
 
 template <typename Traits> class Fiber {
   public:
@@ -30,6 +31,7 @@ template <typename Traits> class Fiber {
     friend Mutex<Traits>;
     friend ConditionVariable<Traits>;
     friend Semaphore<Traits>;
+    friend UnbufferedChannel<Traits, uint64_t>;
 
     template <typename F> void SwitchBack(F &&task) {
         SwitchBackTaskWrapper task_wrapper(std::forward<F>(task));

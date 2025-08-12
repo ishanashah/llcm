@@ -17,7 +17,7 @@ template <typename Traits, typename T> class UnbufferedChannel {
     }
 
     T Receive(Traits::FiberT *fiber) {
-        receiver_.Wait();
+        receiver_.Wait(fiber);
         T value = std::move(value_);
         if (waiting_sender_ != nullptr) {
             waiting_sender_->Schedule();

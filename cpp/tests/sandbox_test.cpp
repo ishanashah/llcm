@@ -1,3 +1,4 @@
+#include "lib/fibers/buffered_channel.hpp"
 #include "lib/fibers/condition_variable.hpp"
 #include "lib/fibers/fiber.hpp"
 #include "lib/fibers/mutex.hpp"
@@ -18,23 +19,25 @@ static constexpr size_t STACK_SIZE = 1024 * 16;
 struct Callable {
     void operator()(Fiber<Traits> *fiber) {
         while (true) {
-            counter_ += 1;
+            uint64_t local_counter = 0;
             mutex_->Lock(fiber);
-            *shared_counter_ += 1;
-            if (*shared_counter_ % 2 == 0) {
-                condition_variable_->Wait(fiber, mutex_);
-            } else {
-                condition_variable_->Signal();
-            }
+            local_counter = *shared_counter_ + 1;
+            *shared_counter_ = local_counter;
             mutex_->Unlock();
-            fiber->Yeild();
+            if (local_counter % 2 == 0) {
+                auto received_counter = channel_->Receive(fiber);
+                assert(received_counter == local_counter - 1);
+            } else {
+                channel_->Send(fiber, local_counter);
+            }
         }
     }
 
     uint64_t counter_ = 0;
-    uint64_t *shared_counter_ = 0;
+    uint64_t *shared_counter_ = nullptr;
     Mutex<Traits> *mutex_ = nullptr;
     ConditionVariable<Traits> *condition_variable_ = nullptr;
+    UnbufferedChannel<Traits, uint64_t> *channel_;
 };
 
 struct ThreadArgs {
@@ -67,6 +70,10 @@ int main() {
     ConditionVariable<Traits> condition_variable;
     callable0.condition_variable_ = &condition_variable;
     callable1.condition_variable_ = &condition_variable;
+    UnbufferedChannel<Traits, uint64_t> channel;
+    callable0.channel_ = &channel;
+    callable1.channel_ = &channel;
+    BufferedChannel<Traits, int> buffered_channel_(5);
     ThreadArgs args0{.tid_ = 0, .scheduler = &scheduler};
     ThreadArgs args1{.tid_ = 1, .scheduler = &scheduler};
     {
