@@ -1,3 +1,4 @@
+#include "lib/fibers/condition_variable.hpp"
 #include "lib/fibers/fiber.hpp"
 #include "lib/fibers/mutex.hpp"
 #include "lib/fibers/scheduler.hpp"
@@ -18,6 +19,11 @@ struct Callable {
             counter_ += 1;
             mutex_->Lock(fiber);
             *shared_counter_ += 1;
+            if (*shared_counter_ % 2 == 0) {
+                condition_variable_->Wait(fiber, mutex_);
+            } else {
+                condition_variable_->Signal();
+            }
             mutex_->Unlock();
             fiber->Yeild();
         }
@@ -26,6 +32,7 @@ struct Callable {
     uint64_t counter_ = 0;
     uint64_t *shared_counter_ = 0;
     Mutex<Traits> *mutex_ = nullptr;
+    ConditionVariable<Traits> *condition_variable_ = nullptr;
 };
 
 struct ThreadArgs {
@@ -55,6 +62,9 @@ int main() {
     Mutex<Traits> mutex;
     callable0.mutex_ = &mutex;
     callable1.mutex_ = &mutex;
+    ConditionVariable<Traits> condition_variable;
+    callable0.condition_variable_ = &condition_variable;
+    callable1.condition_variable_ = &condition_variable;
     ThreadArgs args0{.tid_ = 0, .scheduler = &scheduler};
     ThreadArgs args1{.tid_ = 1, .scheduler = &scheduler};
     {

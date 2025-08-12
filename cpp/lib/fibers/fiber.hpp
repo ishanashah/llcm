@@ -5,6 +5,7 @@
 #include <utility>
 
 template <typename Traits> class Mutex;
+template <typename Traits> class ConditionVariable;
 
 template <typename Traits> class Fiber {
   public:
@@ -26,6 +27,7 @@ template <typename Traits> class Fiber {
 
   private:
     friend Mutex<Traits>;
+    friend ConditionVariable<Traits>;
     void SwitchBack(SwitchBackTask *task) { context_->SwitchBack(task); }
     void Schedule() { scheduler_->ScheduleContext(context_); }
 
