@@ -27,8 +27,10 @@ template <typename Traits, typename F> class Context final : public IContext {
         main_context_ = &main_context;
         int ret = swapcontext(main_context_, &context_);
         PROD_ASSERT(ret == 0);
-        (*switch_back_task_)();
+        PROD_ASSERT(main_context_ == nullptr);
+        auto *local_switch_back_task = switch_back_task_;
         switch_back_task_ = nullptr;
+        (*local_switch_back_task)();
     }
 
     void SwitchBack(SwitchBackTask *task) override {
@@ -37,6 +39,7 @@ template <typename Traits, typename F> class Context final : public IContext {
         switch_back_task_ = task;
         int ret = swapcontext(&context_, local_main_context);
         PROD_ASSERT(ret == 0);
+        PROD_ASSERT(switch_back_task_ == nullptr);
     }
 
   private:
@@ -44,7 +47,8 @@ template <typename Traits, typename F> class Context final : public IContext {
         typename Traits::FiberT fiber(context->scheduler_, context);
         context->callable_(&fiber);
         context->is_active_ = false;
-        setcontext(context->main_context_);
+        SwitchBackTaskWrapper task([]() {});
+        context->SwitchBack(&task);
         DIE();   // unreachable
     }
 
