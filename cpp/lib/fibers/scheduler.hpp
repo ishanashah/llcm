@@ -1,6 +1,5 @@
 #pragma once
 
-#include "i_context.hpp"
 #include "lib/concurrent_queue.hpp"
 #include <memory>
 #include <stddef.h>
@@ -16,11 +15,11 @@ template <typename Traits> class Scheduler {
     }
 
     bool Poll() {
-        std::optional<IContext *> maybe_next = queue_.TryPop();
+        std::optional<typename Traits::ContextT *> maybe_next = queue_.TryPop();
         if (!maybe_next.has_value()) {
             return false;
         }
-        IContext *next = std::move(maybe_next.value());
+        typename Traits::ContextT *next = std::move(maybe_next.value());
         next->Switch();
         if (!next->IsActive()) {
             delete next;
@@ -30,9 +29,9 @@ template <typename Traits> class Scheduler {
 
   private:
     friend Traits::FiberT;
-    void ScheduleContext(IContext *context) { queue_.Push(std::move(context)); }
+    void ScheduleContext(Traits::ContextT *context) { queue_.Push(std::move(context)); }
 
   private:
-    ConcurrentQueue<IContext *> queue_;
+    ConcurrentQueue<typename Traits::ContextT *> queue_;
     size_t stack_size_;
 };

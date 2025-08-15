@@ -1,6 +1,5 @@
 #pragma once
 
-#include "i_context.hpp"
 #include "lib/scmp_dynamic_concurrent_queue.hpp"
 #include <utility>
 
@@ -11,16 +10,11 @@ template <typename Traits, typename T> class UnbufferedChannel;
 
 template <typename Traits> class Fiber {
   public:
-    Fiber(Traits::SchedulerT *scheduler, IContext *context)
+    Fiber(Traits::SchedulerT *scheduler, Traits::ContextT *context)
         : scheduler_(scheduler), context_(context) {}
 
     void Yeild() {
-        struct SwitchBackTaskSchedule : public SwitchBackTask {
-            SwitchBackTaskSchedule(Fiber *fiber) : fiber_(fiber) {}
-            void operator()() override { fiber_->Schedule(); }
-            Fiber *fiber_ = nullptr;
-        } task(this);
-        context_->SwitchBack(&task);
+        context_->SwitchBack([&]() { Schedule(); });
     }
 
     template <typename F> void Schedule(F &&callable) {
@@ -33,13 +27,10 @@ template <typename Traits> class Fiber {
     friend Semaphore<Traits>;
     friend UnbufferedChannel<Traits, uint64_t>;
 
-    template <typename F> void SwitchBack(F &&task) {
-        SwitchBackTaskWrapper task_wrapper(std::forward<F>(task));
-        context_->SwitchBack(&task_wrapper);
-    }
+    template <typename F> void SwitchBack(F &&task) { context_->SwitchBack(std::forward<F>(task)); }
     void Schedule() { scheduler_->ScheduleContext(context_); }
 
     Traits::SchedulerT *scheduler_ = nullptr;
-    IContext *context_ = nullptr;
+    Traits::ContextT *context_ = nullptr;
     DynamicConcurrentQueueEntry<Fiber *> queue_entry_{.element_ = this};
 };

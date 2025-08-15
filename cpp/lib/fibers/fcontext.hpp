@@ -1,6 +1,5 @@
 #pragma once
 
-#include "i_context.hpp"
 #include "lib/utils.hpp"
 #include <boost/context/detail/fcontext.hpp>
 #include <cstddef>
@@ -10,20 +9,20 @@
 #include <ucontext.h>
 #include <vector>
 
-template <typename Traits> class FContext final : public IContext {
+template <typename Traits> class FContext {
   public:
     template <typename F>
     FContext(Traits::SchedulerT *scheduler, size_t stack_size, F &&callable)
-        : stack_(stack_size), context_(boost::context::detail::make_fcontext(
-                                  &stack_[stack_size - 1], stack_size, CallableWrapper<F>::Invoke)),
-          scheduler_(scheduler) {
-        CallableWrapper<F> tmp_wrapper(std::forward<F>(callable), this);
+        : stack_(stack_size),
+          context_(boost::context::detail::make_fcontext(&stack_[stack_size - 1], stack_size,
+                                                         CallableWrapper<F>::Invoke)) {
+        CallableWrapper<F> tmp_wrapper(std::forward<F>(callable), this, scheduler);
         context_ = boost::context::detail::jump_fcontext(context_, &tmp_wrapper).fctx;
     }
 
-    bool IsActive() const override { return is_active_; }
+    bool IsActive() const { return is_active_; }
 
-    void Switch() override {
+    void Switch() {
         boost::context::detail::transfer_t transfer =
             boost::context::detail::jump_fcontext(context_, nullptr);
         context_ = transfer.fctx;
@@ -31,16 +30,19 @@ template <typename Traits> class FContext final : public IContext {
         (*task)();
     }
 
-    void SwitchBack(SwitchBackTask *task) override {
-        main_context_ = boost::context::detail::jump_fcontext(main_context_, task).fctx;
+    template <typename F> void SwitchBack(F &&switch_back_task) {
+        struct SwitchBackTaskWrapper final : public SwitchBackTask {
+            SwitchBackTaskWrapper(F &&function) : function_(std::forward<F>(function)) {}
+            void operator()() override { function_(); }
+            F function_;
+        } wrapper(std::forward<F>(switch_back_task));
+        main_context_ = boost::context::detail::jump_fcontext(main_context_, &wrapper).fctx;
     }
 
   private:
     template <typename F> struct CallableWrapper {
-        CallableWrapper(F &&callable, FContext *context)
-            : callable_(std::forward<F>(callable)), context_(context) {}
-        F callable_;
-        FContext *context_;
+        CallableWrapper(F &&callable, FContext *context, Traits::SchedulerT *scheduler)
+            : callable_(std::forward<F>(callable)), context_(context), scheduler_(scheduler) {}
 
         static void Invoke(boost::context::detail::transfer_t transfer) {
             CallableWrapper *tmp_wrapper = static_cast<decltype(tmp_wrapper)>(transfer.data);
@@ -48,13 +50,21 @@ template <typename Traits> class FContext final : public IContext {
             auto *context = wrapper.context_;
             context->main_context_ =
                 boost::context::detail::jump_fcontext(transfer.fctx, nullptr).fctx;
-            typename Traits::FiberT fiber(context->scheduler_, context);
+            typename Traits::FiberT fiber(wrapper.scheduler_, context);
             wrapper.callable_(&fiber);
             context->is_active_ = false;
-            SwitchBackTaskWrapper task([]() {});
-            context->SwitchBack(&task);
+            context->SwitchBack([]() {});
             DIE();   // unreachable
         }
+
+        F callable_;
+        FContext *context_;
+        Traits::SchedulerT *scheduler_;
+    };
+
+    struct SwitchBackTask {
+        virtual void operator()() = 0;
+        virtual ~SwitchBackTask() = default;
     };
 
   private:
@@ -62,5 +72,4 @@ template <typename Traits> class FContext final : public IContext {
     boost::context::detail::fcontext_t context_{};
     boost::context::detail::fcontext_t main_context_{};
     bool is_active_ = true;
-    Traits::SchedulerT *scheduler_ = nullptr;
 };
