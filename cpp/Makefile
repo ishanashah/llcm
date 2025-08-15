@@ -1,6 +1,6 @@
 CXX = g++
-CTESTFLAGS = -pthread -std=gnu++20 -ggdb -Wall -O0 -I .
-CPERFFLAGS = -pthread -std=gnu++20 -Wall -O3 -march=native -mtune=native -I .
+CTESTFLAGS = -pthread -std=gnu++20 -I/usr/include -ggdb -Wall -O0 -I .
+CPERFFLAGS = -pthread -std=gnu++20 -I/usr/include -Wall -O3 -march=native -mtune=native -I .
 
 all: tests benchmarks
 
