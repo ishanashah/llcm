@@ -11,8 +11,7 @@ template <typename Traits> class Scheduler {
     Scheduler(size_t capacity, size_t stack_size) : queue_(capacity), stack_size_(stack_size) {}
 
     template <typename F> void Schedule(F &&callable) {
-        auto *context =
-            new typename Traits::template ContextT<F>(this, stack_size_, std::forward<F>(callable));
+        auto *context = new Traits::ContextT(this, stack_size_, std::forward<F>(callable));
         ScheduleContext(std::move(context));
     }
 

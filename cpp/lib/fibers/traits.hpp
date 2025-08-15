@@ -6,8 +6,7 @@
 #include "scheduler.hpp"
 
 struct Traits {
-    template <typename F> using ContextT = FContext<Traits, F>;
-
+    using ContextT = FContext<Traits>;
     using FiberT = Fiber<Traits>;
     using SchedulerT = Scheduler<Traits>;
 
