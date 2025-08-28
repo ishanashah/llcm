@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <future>
-#include <iostream>
 #include <ucontext.h>
 #include <vector>
 
@@ -36,7 +35,7 @@ template <typename Traits> class FContext {
             void operator()() override { function_(); }
             F function_;
         } wrapper(std::forward<F>(switch_back_task));
-        main_context_ = boost::context::detail::jump_fcontext(main_context_, &wrapper).fctx;
+        context_ = boost::context::detail::jump_fcontext(context_, &wrapper).fctx;
     }
 
   private:
@@ -46,13 +45,16 @@ template <typename Traits> class FContext {
 
         static void Invoke(boost::context::detail::transfer_t transfer) {
             CallableWrapper *tmp_wrapper = static_cast<decltype(tmp_wrapper)>(transfer.data);
-            CallableWrapper wrapper = std::move(*tmp_wrapper);
-            auto *context = wrapper.context_;
-            context->main_context_ =
-                boost::context::detail::jump_fcontext(transfer.fctx, nullptr).fctx;
-            typename Traits::FiberT fiber(wrapper.scheduler_, context);
-            wrapper.callable_(&fiber);
-            context->is_active_ = false;
+            auto *context = tmp_wrapper->context_;
+            {
+                CallableWrapper wrapper = std::move(*tmp_wrapper);
+                context->context_ =
+                    boost::context::detail::jump_fcontext(transfer.fctx, nullptr).fctx;
+                typename Traits::FiberT fiber(wrapper.scheduler_, context);
+                wrapper.callable_(&fiber);
+                context->is_active_ = false;
+                // make sure to destroy everything
+            }
             context->SwitchBack([]() {});
             DIE();   // unreachable
         }
@@ -70,6 +72,5 @@ template <typename Traits> class FContext {
   private:
     std::vector<uint8_t> stack_;
     boost::context::detail::fcontext_t context_{};
-    boost::context::detail::fcontext_t main_context_{};
     bool is_active_ = true;
 };

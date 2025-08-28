@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <future>
-#include <iostream>
 #include <ucontext.h>
 #include <vector>
 
