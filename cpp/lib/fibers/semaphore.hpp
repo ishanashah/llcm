@@ -14,7 +14,7 @@ template <typename Traits> class Semaphore {
     void Wait(Traits::FiberT *fiber) {
         auto const local_counter = __atomic_sub_fetch(&counter_, 1, __ATOMIC_SEQ_CST);
         if (local_counter < 0) {
-            fiber->SwitchBack([&]() { queue_.Push(&fiber->queue_entry_); });
+            fiber->SwitchBack([&]() { queue_.Push(fiber->GetDynamicQueueEntry()); });
         }
     }
 

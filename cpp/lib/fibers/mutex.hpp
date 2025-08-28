@@ -11,7 +11,7 @@ template <typename Traits> class Mutex {
         if (local_counter == 0) {
             return;
         }
-        fiber->SwitchBack([&]() { queue_.Push(&fiber->queue_entry_); });
+        fiber->SwitchBack([&]() { queue_.Push(fiber->GetDynamicQueueEntry()); });
     }
 
     void Unlock() {

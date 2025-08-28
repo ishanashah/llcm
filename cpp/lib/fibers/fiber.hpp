@@ -21,15 +21,12 @@ template <typename Traits> class Fiber {
         scheduler_->Schedule(std::forward<F>(callable));
     }
 
-  private:
-    friend Mutex<Traits>;
-    friend ConditionVariable<Traits>;
-    friend Semaphore<Traits>;
-    friend UnbufferedChannel<Traits, uint64_t>;
-
+    // used for synchronization primitives
     template <typename F> void SwitchBack(F &&task) { context_->SwitchBack(std::forward<F>(task)); }
     void Schedule() { scheduler_->ScheduleContext(context_); }
+    DynamicConcurrentQueueEntry<Fiber *> *GetDynamicQueueEntry() { return &queue_entry_; }
 
+  private:
     Traits::SchedulerT *scheduler_ = nullptr;
     Traits::ContextT *context_ = nullptr;
     DynamicConcurrentQueueEntry<Fiber *> queue_entry_{.element_ = this};
