@@ -17,8 +17,8 @@ template <typename Traits> class Fiber {
         context_->SwitchBack([&]() { Schedule(); });
     }
 
-    template <typename F> void Schedule(F &&callable) {
-        scheduler_->Schedule(std::forward<F>(callable));
+    template <typename F> bool TryCreateFiber(F &&callable) {
+        return scheduler_->TryCreateFiber(std::forward<F>(callable));
     }
 
     // used for synchronization primitives

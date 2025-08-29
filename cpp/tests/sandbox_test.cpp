@@ -87,13 +87,13 @@ int main() {
             }
         }
     };
-    scheduler.Schedule(lambda);
-    scheduler.Schedule(lambda);
+    scheduler.TryCreateFiber(lambda);
+    scheduler.TryCreateFiber(lambda);
 
     Callable callable;
-    scheduler.Schedule(std::move(callable));
+    scheduler.TryCreateFiber(std::move(callable));
 
-    scheduler.Schedule(
+    scheduler.TryCreateFiber(
         CallableAndDestroyable([]() {}, []() { std::cout << "destructor 2" << std::endl; }));
 
     ThreadArgs args0{.tid_ = 0, .scheduler = &scheduler};

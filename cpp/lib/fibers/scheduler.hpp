@@ -10,10 +10,14 @@ template <typename Traits> class Scheduler {
     Scheduler(size_t capacity, size_t stack_size)
         : queue_(capacity), stack_factory_(capacity, stack_size), stack_size_(stack_size) {}
 
-    template <typename F> void Schedule(F &&callable) {
+    template <typename F> bool TryCreateFiber(F &&callable) {
+        if (!queue_.TryReserveSizeBeforePush(1)) {
+            return false;
+        }
         auto *context =
             new Traits::ContextT(this, stack_factory_.allocate(), std::forward<F>(callable));
         ScheduleContext(std::move(context));
+        return true;
     }
 
     bool Poll() {
@@ -25,6 +29,7 @@ template <typename Traits> class Scheduler {
         next->Switch();
         if (!next->IsActive()) {
             delete next;
+            queue_.UnreserveSizeAfterPop(1);
         }
         return true;
     }
