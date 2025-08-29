@@ -43,6 +43,26 @@ struct Callable {
     ~Callable() { std::cout << "CALLABLE DESTRUCTOR" << std::endl; }
 };
 
+template <typename F, typename G> struct CallableAndDestroyable {
+    CallableAndDestroyable(F &&function, G &&destructor)
+        : function_(std::forward<F>(function)), destructor_(std::forward<G>(destructor)) {}
+
+    void operator()(Fiber<Traits> *fiber) {
+        if (function_.has_value()) {
+            function_.value()();
+        }
+    }
+
+    ~CallableAndDestroyable() {
+        if (destructor_.has_value()) {
+            destructor_.value()();
+        }
+    }
+
+    std::optional<F> function_ = std::nullopt;
+    std::optional<G> destructor_ = std::nullopt;
+};
+
 int main() {
     Scheduler<Traits> scheduler(SCHEDULER_CAPACITY, STACK_SIZE);
     uint64_t shared_counter = 0;
@@ -72,6 +92,9 @@ int main() {
 
     Callable callable;
     scheduler.Schedule(std::move(callable));
+
+    scheduler.Schedule(
+        CallableAndDestroyable([]() {}, []() { std::cout << "destructor 2" << std::endl; }));
 
     ThreadArgs args0{.tid_ = 0, .scheduler = &scheduler};
     ThreadArgs args1{.tid_ = 1, .scheduler = &scheduler};

@@ -7,10 +7,12 @@
 
 template <typename Traits> class Scheduler {
   public:
-    Scheduler(size_t capacity, size_t stack_size) : queue_(capacity), stack_size_(stack_size) {}
+    Scheduler(size_t capacity, size_t stack_size)
+        : queue_(capacity), stack_factory_(capacity, stack_size), stack_size_(stack_size) {}
 
     template <typename F> void Schedule(F &&callable) {
-        auto *context = new Traits::ContextT(this, stack_size_, std::forward<F>(callable));
+        auto *context =
+            new Traits::ContextT(this, stack_factory_.allocate(), std::forward<F>(callable));
         ScheduleContext(std::move(context));
     }
 
@@ -33,5 +35,6 @@ template <typename Traits> class Scheduler {
 
   private:
     ConcurrentQueue<typename Traits::ContextT *> queue_;
+    Traits::StackFactoryT stack_factory_;
     size_t stack_size_;
 };

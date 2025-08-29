@@ -11,13 +11,16 @@
 template <typename Traits> class FContext {
   public:
     template <typename F>
-    FContext(Traits::SchedulerT *scheduler, size_t stack_size, F &&callable)
-        : stack_(stack_size),
-          context_(boost::context::detail::make_fcontext(&stack_[stack_size - 1], stack_size,
+    FContext(Traits::SchedulerT *scheduler, Traits::StackT stack, F &&callable)
+        : stack_(std::move(stack)),
+          context_(boost::context::detail::make_fcontext(stack_.bottom(), stack_.size(),
                                                          CallableWrapper<F>::Invoke)) {
         CallableWrapper<F> tmp_wrapper(std::forward<F>(callable), this, scheduler);
         context_ = boost::context::detail::jump_fcontext(context_, &tmp_wrapper).fctx;
     }
+
+    FContext(FContext const &) = delete;
+    void operator=(FContext const &) = delete;
 
     bool IsActive() const { return is_active_; }
 
@@ -70,7 +73,7 @@ template <typename Traits> class FContext {
     };
 
   private:
-    std::vector<uint8_t> stack_;
+    Traits::StackT stack_;
     boost::context::detail::fcontext_t context_{};
     bool is_active_ = true;
 };
