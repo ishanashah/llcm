@@ -14,8 +14,8 @@ template <typename Traits> class Scheduler {
         if (!queue_.TryReserveSizeBeforePush(1)) {
             return false;
         }
-        auto *context =
-            new Traits::ContextT(this, stack_factory_.allocate(), std::forward<F>(callable));
+        auto stack = stack_factory_.allocate();
+        auto *context = new Traits::ContextT(this, std::move(stack), std::forward<F>(callable));
         ScheduleContext(std::move(context));
         return true;
     }

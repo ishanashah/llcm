@@ -8,8 +8,7 @@
 template <typename Traits> class StackFactoryPool {
   public:
     StackFactoryPool(size_t capacity, size_t stack_size)
-        : capacity_(capacity), stack_size_(stack_size), queue_(capacity),
-          pool_(capacity * stack_size) {
+        : stack_size_(stack_size), queue_(capacity), pool_(capacity * stack_size) {
         for (size_t i = 0; i < pool_.size(); i += stack_size) {
             queue_.Push(&pool_[i]);
         }
@@ -40,21 +39,31 @@ template <typename Traits> class StackFactoryPool {
         }
 
         uint8_t *top() { return stack_; }
-        uint8_t *bottom() { return &stack_[stack_factory_->stack_size_ - 1]; }
+        uint8_t *bottom() { return stack_ptr_; }
         size_t size() const { return stack_factory_->stack_size_; }
+        template <typename T, typename... Args> void push(Args &&...args) {
+            stack_ptr_ -= sizeof(T);
+            new (stack_ptr_) T(std::forward<Args>(args)...);
+        }
+        template <typename T> void pop() {
+            T *ptr = reinterpret_cast<T *>(stack_ptr_);
+            ptr->~T();
+            stack_ptr_ += sizeof(T);
+        }
 
       private:
         friend StackFactoryPool;
         Stack(StackFactoryPool *stack_factory)
-            : stack_factory_(stack_factory), stack_(stack_factory->queue_.ForcePop()) {}
+            : stack_factory_(stack_factory), stack_(stack_factory->queue_.ForcePop()),
+              stack_ptr_(&stack_[stack_factory_->stack_size_ - 1]) {}
         StackFactoryPool *stack_factory_ = nullptr;
         uint8_t *stack_ = nullptr;
+        uint8_t *stack_ptr_ = nullptr;
     };
 
     Stack allocate() { return Stack(this); }
 
   private:
-    size_t capacity_ = 0;
     size_t stack_size_ = 0;
     ConcurrentQueue<uint8_t *> queue_;
     std::vector<uint8_t> pool_;

@@ -23,6 +23,7 @@ template <typename Traits> class FContext {
     void operator=(FContext const &) = delete;
 
     bool IsActive() const { return is_active_; }
+    Traits::StackT *GetStack() const { return stack_; }
 
     void Switch() {
         boost::context::detail::transfer_t transfer =
