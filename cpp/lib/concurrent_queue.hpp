@@ -5,9 +5,9 @@
 #include <stdint.h>
 #include <vector>
 
-template <typename T> class ConcurrentQueue {
+template <typename T> class SpscConcurrentQueue {
   public:
-    ConcurrentQueue(size_t capacity);
+    SpscConcurrentQueue(size_t capacity);
 
     size_t GetCapacity() const { return mask_ + 1; }
 
@@ -38,7 +38,7 @@ template <typename T> class ConcurrentQueue {
     alignas(CACHE_LINE_SIZE) uint64_t reserved_push_size_ = 0;
 };
 
-template <typename T> ConcurrentQueue<T>::ConcurrentQueue(size_t capacity) {
+template <typename T> SpscConcurrentQueue<T>::SpscConcurrentQueue(size_t capacity) {
     capacity = RoundUpPow2(capacity);
     if (capacity < 2) {
         capacity = 2;   // capacity must be at least 2 for aba_counter
@@ -50,7 +50,8 @@ template <typename T> ConcurrentQueue<T>::ConcurrentQueue(size_t capacity) {
     mask_ = capacity - 1;
 }
 
-template <typename T> bool ConcurrentQueue<T>::TryReserveSizeBeforePush(size_t num_new_entries) {
+template <typename T>
+bool SpscConcurrentQueue<T>::TryReserveSizeBeforePush(size_t num_new_entries) {
     uint64_t const reserved_push_size =
         __atomic_fetch_add(&reserved_push_size_, num_new_entries, __ATOMIC_SEQ_CST);
     if (reserved_push_size > mask_) {
@@ -60,11 +61,11 @@ template <typename T> bool ConcurrentQueue<T>::TryReserveSizeBeforePush(size_t n
     return true;
 }
 
-template <typename T> void ConcurrentQueue<T>::UnreserveSizeAfterPop(size_t num_old_entries) {
+template <typename T> void SpscConcurrentQueue<T>::UnreserveSizeAfterPop(size_t num_old_entries) {
     __atomic_fetch_sub(&reserved_push_size_, num_old_entries, __ATOMIC_SEQ_CST);
 }
 
-template <typename T> template <typename U> void ConcurrentQueue<T>::Push(U &&value) {
+template <typename T> template <typename U> void SpscConcurrentQueue<T>::Push(U &&value) {
     uint64_t const reserved_write_counter =
         __atomic_fetch_add(&write_counter_, 1, __ATOMIC_SEQ_CST);
     struct Entry *entry = &array_[reserved_write_counter & mask_];
@@ -75,7 +76,7 @@ template <typename T> template <typename U> void ConcurrentQueue<T>::Push(U &&va
     entry->aba_counter_ = reserved_write_counter + 1;
 }
 
-template <typename T> std::optional<T> ConcurrentQueue<T>::TryPop() {
+template <typename T> std::optional<T> SpscConcurrentQueue<T>::TryPop() {
     uint64_t const local_write_counter = write_counter_;
     uint64_t *read_ptr = &read_counter_;
     uint64_t local_read_counter = *read_ptr;
@@ -94,7 +95,7 @@ template <typename T> std::optional<T> ConcurrentQueue<T>::TryPop() {
     return std::nullopt;
 }
 
-template <typename T> T ConcurrentQueue<T>::ForcePop() {
+template <typename T> T SpscConcurrentQueue<T>::ForcePop() {
     uint64_t const reserved_read_counter = __atomic_fetch_add(&read_counter_, 1, __ATOMIC_SEQ_CST);
     struct Entry *entry = &array_[reserved_read_counter & mask_];
     while (entry->aba_counter_ != reserved_read_counter + 1) {

@@ -25,7 +25,8 @@ template <typename Traits> class StackFactoryPool {
         Stack(Stack const &) = delete;
         Stack &operator=(Stack const &) = delete;
         constexpr Stack(Stack &&other) noexcept
-            : stack_factory_(other.stack_factory_), stack_(other.stack_) {
+            : stack_factory_(other.stack_factory_), stack_(other.stack_),
+              stack_ptr_(other.stack_ptr_) {
             other.stack_factory_ = nullptr;
             other.stack_ = nullptr;
         }
@@ -34,6 +35,7 @@ template <typename Traits> class StackFactoryPool {
                 Stack tmp(std::move(other));
                 std::swap(stack_factory_, tmp.stack_factory_);
                 std::swap(stack_, tmp.stack_);
+                std::swap(stack_ptr_, tmp.stack_ptr_);
             }
             return *this;
         }
