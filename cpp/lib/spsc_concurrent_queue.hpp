@@ -16,26 +16,22 @@ template <typename T> class SpscConcurrentQueue {
     std::optional<T> TryPop();
 
   private:
-    static constexpr size_t CACHE_LINE_SIZE = 64;
-    struct Entry {
-        alignas(CACHE_LINE_SIZE) T element_;
-    };
-    static_assert(alignof(Entry) >= CACHE_LINE_SIZE, "");
     static constexpr uint64_t RoundUpPow2(uint64_t x) {
         return x == 1 ? 1 : 1 << (64 - __builtin_clzl(x - 1));
     }
 
   private:
-    std::vector<Entry> array_;
+    std::vector<T> array_;
     size_t mask_ = 0;
 
+    static constexpr size_t CACHE_LINE_SIZE = 64;
     alignas(CACHE_LINE_SIZE) std::atomic<uint64_t> read_counter_ = 0;
     alignas(CACHE_LINE_SIZE) std::atomic<uint64_t> write_counter_ = 0;
 };
 
 template <typename T> SpscConcurrentQueue<T>::SpscConcurrentQueue(size_t capacity) {
     capacity = RoundUpPow2(capacity);
-    array_ = std::vector<Entry>(capacity);
+    array_ = std::vector<T>(capacity);
     mask_ = capacity - 1;
 }
 
@@ -47,8 +43,7 @@ template <typename T> template <typename U> bool SpscConcurrentQueue<T>::Push(U 
         return false;
     }
 
-    struct Entry *entry = &array_[local_write_counter & mask_];
-    entry->element_ = std::forward<U>(value);
+    array_[local_write_counter & mask_] = std::forward<U>(value);
     write_counter_.store(local_write_counter + 1, std::memory_order_release);
     return true;
 }
@@ -61,8 +56,7 @@ template <typename T> std::optional<T> SpscConcurrentQueue<T>::TryPop() {
         return {};
     }
 
-    struct Entry *entry = &array_[local_read_counter & mask_];
-    T result = std::move(entry->element_);
+    T result = std::move(array_[local_read_counter & mask_]);
     read_counter_.store(local_read_counter + 1, std::memory_order_release);
     return result;
 }
